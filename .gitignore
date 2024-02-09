@@ -11,4 +11,7 @@ src/*.elf
 src/*.bin
 *.bin
 *.iso
+cmake-build-debug/
+build
+.cache
 
