@@ -1,174 +1,11 @@
-#include <gpu.h>
-#include <input.h>
-
-#include "background.m3if.asset"
-#include "blaster0.m3if.asset"
-#include "blaster1.m3if.asset"
-#include "blaster2.m3if.asset"
-#include "blaster3.m3if.asset"
-#include "blaster4.m3if.asset"
-#include "error.m3if.asset"
-#include "flash.m3if.asset"
-#include "flipped.m3if.asset"
-#include "graphics.h"
-#include "player.m3if.asset"
-#include "unflipped.m3if.asset"
-#include "warning.m3if.asset"
-#include <gpu.h>
-#include <mes.h>
-#include <rng.h>
-#include <stdbool.h>
+#include "main.h"
+#include "input.h"
+#include "timer.h"
+#include "utils.h"
 #include <stdint.h>
-#include <timer.h>
+#include <stdio.h>
 
-#define FPS 60
-#define FRAMETIME ((1.0 / FPS) * 1000)
-
-#define AIR 0
-#define UNFLIPPED 1
-#define FLIPPED 2
-#define BLASTER 3
-#define ERR_BLOCK 4
-
-#define ROWS 7
-#define COLUMNS 6
-
-#define GRAVITY 8
-#define GLIDE_SPEED 16
-#define JUMP_HEIGHT 2000
-#define STOMP_SPEED 300
-#define HORIZONTAL_SPEED 90
-#define MIN_NEW_BIT_DELAY 250
-#define MAX_NEW_BIT_DELAY 4000
-#define WARNING_DURATION 1000
-#define BLASTER_CHANCE 0.1
-#define FLASH_DURATION 50
-#define DESTROIED_BIT_ANIMATION_DURATION 500
-#define LASER_SHOT_DURATION 250
-#define LASER_SHOT_DELAY 4000
-#define DEATH_BLINK_SPEED 750
-#define THREE_FALL_THRESHHOLD 25
-
-#define CONTROLLER 3
-
-#define BLACK 0
-#define WHITE 1
-#define YELLOW 2
-#define RED 3
-#define DARK_RED 4
-#define GREEN 5
-#define BLUE 6
-#define GRAY 7
-
-#define MAX(a, b) (a > b ? a : b)
-
-// palette
-uint16_t palette[8] = {
-    COLOR_TO_GPIO(0b000, 0b000, 0b000), COLOR_TO_GPIO(0b111, 0b111, 0b111),
-    COLOR_TO_GPIO(0b111, 0b111, 0b000), COLOR_TO_GPIO(0b111, 0b000, 0b000),
-    COLOR_TO_GPIO(0b110, 0b001, 0b001), COLOR_TO_GPIO(0b000, 0b111, 0b000),
-    COLOR_TO_GPIO(0b000, 0b111, 0b111), COLOR_TO_GPIO(0b011, 0b011, 0b011)};
-
-struct point {
-    int32_t x;
-    int32_t y;
-};
-
-struct line {
-    int32_t x;
-    int32_t y;
-    int32_t a;
-    int32_t b;
-};
-
-struct line vertical_mesh[7];
-int32_t vertical_mesh_count = 0;
-
-struct line horizontal_mesh[7];
-int32_t horizontal_mesh_count = 0;
-
-struct player {
-    int32_t x;
-    int32_t y;
-    int32_t velx;
-    int32_t vely;
-    int32_t stomped_obstacles;
-    bool last_up_keystate;
-    bool last_down_keystate;
-    bool in_air;
-    bool gliding;
-    bool stomping;
-    bool joined;
-    bool dead;
-    int32_t death_time;
-};
-
-struct bit_descturction_animation {
-    int32_t animation_start;
-    int32_t row;
-    int32_t column;
-};
-
-struct laser_shot {
-    int32_t last_shot;
-    int32_t row;
-    int32_t column;
-    int32_t texture;
-    bool active;
-    int32_t right_expansion;
-    int32_t left_expansion;
-    bool destroyed;
-};
-
-bool warning = false;
-bool flash = false;
-bool flash_spawned = false;
-int32_t falling_blocks = 0;
-int32_t last_warning_start = 0;
-int32_t last_flash_start = 0;
-int32_t interest_column = 0;
-int32_t cycles = 0;
-int32_t next_block = UNFLIPPED;
-
-int32_t stomped_obstacle_score[6] = {100, 250, 500, 1000, 2500, 5000};
-int32_t score = 0;
-int32_t highscore = 0;
-int32_t visualized_score = 0;
-int32_t score_adder = 0;
-int32_t sx;
-struct player player0;
-struct player player1;
-struct player player2;
-struct player player3;
-
-struct bit_descturction_animation
-    bit_descturction_animations[ROWS * COLUMNS + 1];
-int32_t bit_destruction_animation_array_pointer = 0;
-
-struct laser_shot laser_shots[ROWS * COLUMNS * 8 + 1];
-int32_t laser_shots_poiter = 0;
-
-int32_t bit_blocks[ROWS][COLUMNS] = {
-    {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
-    {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
-    {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
-    {AIR, AIR, AIR, AIR, AIR, AIR},
-};
-int32_t delta;
-
-Surface warning_texture;
-Surface flash_texture;
-Surface background_texture;
-Surface blaster0_texture;
-Surface blaster1_texture;
-Surface blaster2_texture;
-Surface blaster3_texture;
-Surface blaster4_texture;
-Surface unflipped_texture;
-Surface flipped_texture;
-Surface error_texture;
-Surface player_texture;
-Surface *box;
+#include "pause.h"
 
 void handle_input(struct player *p1, int32_t player_id) {
 
@@ -190,16 +27,34 @@ void handle_input(struct player *p1, int32_t player_id) {
     //        }
     if (input_get_button(player_id, BUTTON_UP) &&
         (!p1->in_air || p1->gliding) && !p1->last_up_keystate) {
-        p1->vely = -JUMP_HEIGHT;
+        if (p1->vely == 0) {
+            p1->vely = -JUMP_HEIGHT;
+        } else {
+            p1->vely = -JUMP_HEIGHT / 1.6;
+        }
         //        p1.y -= 0.05;
+    }
+
+    if (input_get_button(player_id, BUTTON_START)) {
+        pause = true;
     }
     p1->last_up_keystate = input_get_button(player_id, BUTTON_UP);
     p1->last_down_keystate = input_get_button(player_id, BUTTON_DOWN);
+    p1->last_right_keystate = input_get_button(player_id, BUTTON_RIGHT);
+    p1->last_left_keystate = input_get_button(player_id, BUTTON_LEFT);
+    p1->last_a_keystate = input_get_button(player_id, BUTTON_A);
+    p1->last_b_keystate = input_get_button(player_id, BUTTON_B);
+    p1->last_start_keystate = input_get_button(player_id, BUTTON_START);
+    p1->last_select_keystate = input_get_button(player_id, BUTTON_SELECT);
 }
 
 void update_player_status(struct player *p1, int32_t player_id) {
 
+    bool prev = p1->joined;
     p1->joined = input_is_available(player_id);
+    if (!prev && p1->joined) {
+        // spawn_player()
+    }
 }
 
 void add_score(int32_t adder) {
@@ -226,7 +81,7 @@ int32_t column_air_amount(int32_t column) {
 
 void spawn_warning() {
     cycles++;
-    last_warning_start = timer_get_ms();
+    last_warning_start = get_unpaused_ms();
     interest_column = rng_u32() % 6;
     warning = true;
     flash = false;
@@ -244,7 +99,7 @@ void spawn_warning() {
 
 void spawn_flash() {
     flash_spawned = true;
-    last_flash_start = timer_get_ms();
+    last_flash_start = get_unpaused_ms();
     warning = false;
     flash = true;
 }
@@ -282,7 +137,7 @@ void send_error_block(int32_t column) {
     bit_blocks[0][column] = AIR;
     for (int32_t i = 1; i < ROWS - 1; ++i) {
         struct bit_descturction_animation ani;
-        ani.animation_start = timer_get_ms();
+        ani.animation_start = get_unpaused_ms();
         ani.column = column;
         ani.row = i;
         if (bit_blocks[i + 1][column] == ERR_BLOCK) {
@@ -297,7 +152,7 @@ void send_error_block(int32_t column) {
 
 void spawn_block() {
     falling_blocks--;
-    for (int32_t i = 1; i < ROWS; ++i) {
+    for (int32_t i = 1; i < ROWS + 1; ++i) {
         if (bit_blocks[i][interest_column] != AIR) {
             bit_blocks[i - 1][interest_column] = next_block;
             if (next_block == BLASTER) {
@@ -322,29 +177,29 @@ void update_laser_shots() {
             laser_shots[i].destroyed = true;
             return;
         }
-        if (timer_get_ms() - laser_shots[i].last_shot > LASER_SHOT_DELAY) {
+        if (get_unpaused_ms() - laser_shots[i].last_shot > LASER_SHOT_DELAY) {
             laser_shots[i].active = true;
             laser_shots[i].texture = 4;
         } else {
             laser_shots[i].active = false;
             laser_shots[i].texture = 0;
-            if (timer_get_ms() - laser_shots[i].last_shot >
+            if (get_unpaused_ms() - laser_shots[i].last_shot >
                 LASER_SHOT_DELAY * 0.55) {
                 laser_shots[i].texture = 1;
             }
-            if (timer_get_ms() - laser_shots[i].last_shot >
+            if (get_unpaused_ms() - laser_shots[i].last_shot >
                 LASER_SHOT_DELAY * 0.7) {
                 laser_shots[i].texture = 2;
             }
-            if (timer_get_ms() - laser_shots[i].last_shot >
+            if (get_unpaused_ms() - laser_shots[i].last_shot >
                 LASER_SHOT_DELAY * 0.85) {
                 laser_shots[i].texture = 3;
             }
         }
-        if (timer_get_ms() - laser_shots[i].last_shot >
+        if (get_unpaused_ms() - laser_shots[i].last_shot >
             LASER_SHOT_DELAY + LASER_SHOT_DURATION) {
             laser_shots[i].active = false;
-            laser_shots[i].last_shot = timer_get_ms();
+            laser_shots[i].last_shot = get_unpaused_ms();
             laser_shots[i].texture = 4;
         }
         int right = 0;
@@ -404,14 +259,6 @@ void correct_player_stomp_trajectory(struct player *p1) {
     }
 }
 
-bool is_point_inside_rectangle(int32_t px, int32_t py, int32_t x, int32_t y,
-                               int32_t h, int32_t w) {
-    if (px >= x && px <= x + w && py >= y && py <= y + h) {
-        return true;
-    }
-    return false;
-}
-
 void handle_stomp_obstacle(struct player *p1) {
     if (p1->vely == 0) {
         return;
@@ -438,7 +285,7 @@ void handle_stomp_obstacle(struct player *p1) {
                            bit_blocks[i][j] == BLASTER) {
                     bit_blocks[i][j] = AIR;
                     struct bit_descturction_animation ani;
-                    ani.animation_start = timer_get_ms();
+                    ani.animation_start = get_unpaused_ms();
                     ani.column = j;
                     ani.row = i;
                     add_bit_descturction_animation(ani);
@@ -493,26 +340,6 @@ int32_t column_height(int32_t column) {
         counter++;
     }
     return ROWS;
-}
-
-bool linesIntersect(struct line a, struct line b) {
-    int32_t x1 = a.x;
-    int32_t y1 = a.y;
-    int32_t x2 = a.a;
-    int32_t y2 = a.b;
-    int32_t x3 = b.x;
-    int32_t y3 = b.y;
-    int32_t x4 = b.a;
-    int32_t y4 = b.b;
-
-    float den = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
-    float ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / den;
-    float ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / den;
-
-    if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
-        return true;
-    }
-    return false;
 }
 
 void generate_mesh() {
@@ -635,19 +462,16 @@ void handle_block_collision(struct player *p1) {
 
     for (int32_t i = 0; i < vertical_mesh_count; i++) {
         if (linesIntersect(vertical_mesh[i], center_line)) {
-            p1->velx = 0;
             p1->gliding = true;
+            if (p1->x > 0) {
+                // p1->x = vertical_mesh[i].x - 3400;
+            } else if (p1->x < 0) {
+                // p1->x = vertical_mesh[i].x + 3600;
+            }
             // if (p1->x - vertical_mesh[i].x > )
+            p1->velx = 0;
         }
     }
-}
-
-bool rectanglesOverlap(int32_t x1, int32_t y1, int32_t w1, int32_t h1,
-                       int32_t x2, int32_t y2, int32_t w2, int32_t h2) {
-    if (x1 > x2 + w2 || x1 + w1 < x2 || y1 > y2 + h2 || y1 + h1 < y2) {
-        return false;
-    }
-    return true;
 }
 
 bool player_died(struct player *p1) {
@@ -684,9 +508,9 @@ void draw_player(struct player p1, int32_t pindex) {
     */
     if (!p1.dead) {
         if (p1.stomping) {
-            sx = (3 + ((timer_get_ms() % 1200) / 300)) *
+            sx = (3 + ((get_unpaused_ms() % 1200) / 300)) *
                  7; // index 4 to 7 are for he rotating motion when stomping
-            // printf("%d\n", 4+((timer_get_ms()%400)/100));
+            // printf("%d\n", 4+((get_unpaused_ms()%400)/100));
         } else if (input_get_button(pindex, BUTTON_RIGHT)) {
             if (p1.gliding)
                 sx = 7 * 7; // index 7 is for gliding on a wall on the right
@@ -746,10 +570,37 @@ void handle_player(struct player *p1, int32_t player_id) {
     }
     p1->dead = player_died(p1);
     if (p1->dead) {
-        p1->death_time = timer_get_ms();
+        p1->death_time = get_unpaused_ms();
     }
     p1->x += p1->velx;
     p1->y += p1->vely;
+}
+
+bool has_lost() {
+    if (lost) {
+        return true;
+    }
+
+    if (player0.dead || player1.dead || player2.dead || player3.dead) {
+        if ((!player0.joined || player0.dead) &&
+            (!player1.joined || player1.dead) &&
+            (!player2.joined || player2.dead) &&
+            (!player3.joined || player3.dead)) {
+            return true;
+        }
+    }
+
+    if (!player0.joined && !player1.joined && !player2.joined &&
+        !player3.joined) {
+        pause = true;
+    }
+
+    for (int32_t i = 0; i < COLUMNS; i++) {
+        if (bit_blocks[1][i] == ERR_BLOCK) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // void intPadder(int32_t number, int32_t padding, char *result) {
@@ -787,9 +638,10 @@ void render() {
     surf_draw_masked_surf(box, &background_texture, 0, 0, BLACK);
 
     for (int32_t bit = 0; bit < ROWS * COLUMNS; bit++) {
-        if (timer_get_ms() - bit_descturction_animations[bit].animation_start <
+        if (get_unpaused_ms() -
+                    bit_descturction_animations[bit].animation_start <
                 DESTROIED_BIT_ANIMATION_DURATION &&
-            timer_get_ms() > DESTROIED_BIT_ANIMATION_DURATION) {
+            get_unpaused_ms() > DESTROIED_BIT_ANIMATION_DURATION) {
             surf_set_pixel(
                 box, 1 + (bit_descturction_animations[bit].column * 13) + 5,
                 1 + (bit_descturction_animations[bit].row * 12) + 5, WHITE);
@@ -897,8 +749,8 @@ void render() {
     char box_char[2] = {'!' - 64, 0};
     if (player0.dead) {
         gpu_print_text(FRONT_BUFFER, 58, 13, RED, DARK_RED, box_char);
-        if (player0.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-            (player0.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
+        if (player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+            (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED)
             draw_player(player0, 0);
     } else if (player0.joined) {
@@ -910,8 +762,8 @@ void render() {
 
     if (player1.dead) {
         gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, RED, box_char);
-        if (player1.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-            (player1.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
+        if (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+            (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED)
             draw_player(player1, 1);
     } else if (player1.joined) {
@@ -923,16 +775,16 @@ void render() {
 
     if (player2.dead) {
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, RED, box_char);
-        if (player2.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-            (player2.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
+        if (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+            (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED)
-            surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-                                (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
-        draw_player(player2, 2);
+            // surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
+            //                     (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
+            draw_player(player2, 2);
     } else if (player2.joined) {
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, WHITE, box_char);
-        surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-                            (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
+        // surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
+        //                     (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
         draw_player(player2, 2);
     } else {
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, GRAY, box_char);
@@ -940,8 +792,8 @@ void render() {
 
     if (player3.dead) {
         gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, RED, box_char);
-        if (player3.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-            (player3.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
+        if (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+            (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED)
             draw_player(player3, 3);
     } else if (player3.joined) {
@@ -965,33 +817,33 @@ void render() {
     //     surf_draw_rectangle(box, (player3.x - 1) / 1000 - 41,
     //                         (player3.y - 1) / 1000 - 34, 7, 9, WHITE);
 
-    if (player0.joined && player0.dead &&
-        player0.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-        (player0.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
-            DEATH_BLINK_SPEED)
-        surf_draw_rectangle(box, (player0.x - 1) / 1000 - 41,
-                            (player0.y - 1) / 1000 - 34, 7, 9, WHITE);
+    // if (player0.joined && player0.dead &&
+    //     player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //     (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //         DEATH_BLINK_SPEED)
+    //     surf_draw_rectangle(box, (player0.x - 1) / 1000 - 41,
+    //                         (player0.y - 1) / 1000 - 34, 7, 9, WHITE);
 
-    if (player1.joined && player1.dead &&
-        player1.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-        (player1.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
-            DEATH_BLINK_SPEED)
-        surf_draw_rectangle(box, (player1.x - 1) / 1000 - 41,
-                            (player1.y - 1) / 1000 - 34, 7, 9, WHITE);
+    // if (player1.joined && player1.dead &&
+    //     player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //     (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //         DEATH_BLINK_SPEED)
+    //     surf_draw_rectangle(box, (player1.x - 1) / 1000 - 41,
+    //                         (player1.y - 1) / 1000 - 34, 7, 9, WHITE);
 
-    if (player2.joined && player2.dead &&
-        player2.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-        (player2.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
-            DEATH_BLINK_SPEED)
-        surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-                            (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
+    // if (player2.joined && player2.dead &&
+    //     player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //     (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //         DEATH_BLINK_SPEED)
+    //     surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
+    //                         (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
 
-    if (player3.joined && player3.dead &&
-        player3.death_time + DEATH_BLINK_SPEED * 4 > timer_get_ms() &&
-        (player3.death_time - timer_get_ms()) % DEATH_BLINK_SPEED * 2 <
-            DEATH_BLINK_SPEED)
-        surf_draw_rectangle(box, (player3.x - 1) / 1000 - 41,
-                            (player3.y - 1) / 1000 - 34, 7, 9, WHITE);
+    // if (player3.joined && player3.dead &&
+    //     player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //     (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //         DEATH_BLINK_SPEED)
+    //     surf_draw_rectangle(box, (player3.x - 1) / 1000 - 41,
+    //                         (player3.y - 1) / 1000 - 34, 7, 9, WHITE);
 
     // // debug collision contour lines
     //    for (int32_t i = 0; i < horizontal_mesh_count; i++) {
@@ -1000,12 +852,12 @@ void render() {
     //                       horizontal_mesh[i].a / 1000 - 41,
     //                       horizontal_mesh[i].b / 1000 - 34, BLUE);
     //    }
-    for (int32_t i = 0; i < vertical_mesh_count; i++) {
-        surf_draw_line(box, vertical_mesh[i].x / 1000 - 41,
-                       vertical_mesh[i].y / 1000 - 34,
-                       vertical_mesh[i].a / 1000 - 41,
-                       vertical_mesh[i].b / 1000 - 34, BLUE);
-    }
+    // for (int32_t i = 0; i < vertical_mesh_count; i++) {
+    //     surf_draw_line(box, vertical_mesh[i].x / 1000 - 41,
+    //                    vertical_mesh[i].y / 1000 - 34,
+    //                    vertical_mesh[i].a / 1000 - 41,
+    //                    vertical_mesh[i].b / 1000 - 34, BLUE);
+    // }
 
     gpu_block_frame();
     gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 34, box->d);
@@ -1043,6 +895,18 @@ uint8_t start(void) {
     player_texture = surf_create_from_memory(70, 36, ASSET_PLAYER_M3IF);
     rng_init();
     gpu_update_palette(palette);
+
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLUMNS; j++) {
+            bit_blocks[i][j] = 0;
+        }
+    }
+    // bit_blocks[ROWS][COLUMNS] = {
+    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
+    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
+    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
+    //     {AIR, AIR, AIR, AIR, AIR, AIR},
+    // };
     player0.x = 96000;
     player0.y = 79000;
     player0.velx = 0;
@@ -1050,25 +914,23 @@ uint8_t start(void) {
     player0.dead = false;
     player0.joined = false;
     player1.x = 96000;
-    player1.y = 79000;
+    player1.y = 0;
     player1.velx = 0;
     player1.vely = -100;
     player1.dead = false;
     player1.joined = false;
     player2.x = 96000;
-    player2.y = 79000;
+    player2.y = 0;
     player2.velx = 0;
     player2.vely = -100;
     player2.dead = false;
     player2.joined = false;
     player3.x = 96000;
-    player3.y = 79000;
+    player3.y = 0;
     player3.velx = 0;
     player3.vely = -100;
     player3.dead = false;
     player3.joined = false;
-    int32_t stop;
-    int32_t start;
 
     for (int i = 0; i < ROWS * COLUMNS * 8; i++) {
         struct laser_shot shot;
@@ -1082,31 +944,38 @@ uint8_t start(void) {
     gpu_blank(FRONT_BUFFER, 0);
     gpu_blank(BACK_BUFFER, 0);
 
-    while (1) {
+    while (!lost) {
+        if (pause) {
+            printf("%i\n", get_unpaused_ms());
+            render_pause_menu();
+            pause = false;
+            printf("%i\n", get_unpaused_ms());
+            continue;
+        }
         //        printf("%d\n", falling_blocks);
         if (falling_blocks > 1) {
             if (!warning && !flash) {
-                last_warning_start = timer_get_ms();
+                last_warning_start = get_unpaused_ms();
                 warning = true;
                 flash = false;
-            } else if (warning &&
-                       timer_get_ms() - last_warning_start > WARNING_DURATION) {
+            } else if (warning && get_unpaused_ms() - last_warning_start >
+                                      WARNING_DURATION) {
                 spawn_flash();
                 spawn_block();
             } else if (flash &&
-                       timer_get_ms() - last_flash_start > FLASH_DURATION) {
+                       get_unpaused_ms() - last_flash_start > FLASH_DURATION) {
                 end_flash();
             }
         } else if (falling_blocks >= 0) {
-            if ((timer_get_ms() > get_new_bit_delay() * cycles) && !warning &&
-                !flash) {
+            if ((get_unpaused_ms() > get_new_bit_delay() * cycles) &&
+                !warning && !flash) {
                 spawn_warning();
-            } else if (warning &&
-                       timer_get_ms() - last_warning_start > WARNING_DURATION) {
+            } else if (warning && get_unpaused_ms() - last_warning_start >
+                                      WARNING_DURATION) {
                 spawn_flash();
                 spawn_block();
             } else if (flash &&
-                       timer_get_ms() - last_flash_start > FLASH_DURATION) {
+                       get_unpaused_ms() - last_flash_start > FLASH_DURATION) {
                 end_flash();
             }
         } else {
@@ -1125,16 +994,11 @@ uint8_t start(void) {
         handle_player(&player3, 3);
         flash_spawned = false;
         update_score();
+        lost = has_lost();
         render();
 
-        // timing
-        stop = timer_get_ms();
-        delta = stop - start;
-        //        printf("%d\n", delta);
-        if (delta < FRAMETIME) {
-            timer_block_ms(FRAMETIME - delta);
-        }
-        start = timer_get_ms();
+        timing();
     }
-    return CODE_RESTART;
+    render();
+    return CODE_EXIT;
 }
