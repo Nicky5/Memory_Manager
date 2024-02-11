@@ -1,4 +1,7 @@
 #include "main.h"
+#include "gpu.h"
+#include "gpu_internal.h"
+#include "graphics.h"
 #include "input.h"
 #include "timer.h"
 #include "utils.h"
@@ -303,6 +306,49 @@ void handle_stomp_obstacle(struct player *p1) {
     }
 }
 
+void handle_player_collision(struct player *p1) {
+    if ((!player0.stomping && !player0.dead && player0.joined) &&
+        (player0.y > p1->y) &&
+        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player0.x, player0.y, 7000,
+                          9000)) {
+        player0.dead = true;
+        player0.death_time = get_unpaused_ms();
+        p1->vely = -JUMP_HEIGHT;
+        p1->in_air = true;
+        p1->stomping = false;
+    }
+    if ((!player1.stomping && !player1.dead && player1.joined) &&
+        (player1.y > p1->y) &&
+        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player1.x, player1.y, 7000,
+                          9000)) {
+        player1.dead = true;
+        player1.death_time = get_unpaused_ms();
+        p1->vely = -JUMP_HEIGHT;
+        p1->in_air = true;
+        p1->stomping = false;
+    }
+    if ((!player2.stomping && !player2.dead && player2.joined) &&
+        (player2.y > p1->y) &&
+        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player2.x, player2.y, 7000,
+                          9000)) {
+        player2.dead = true;
+        player2.death_time = get_unpaused_ms();
+        p1->vely = -JUMP_HEIGHT;
+        p1->in_air = true;
+        p1->stomping = false;
+    }
+    if ((!player3.stomping && !player3.dead && player3.joined) &&
+        (player3.y > p1->y) &&
+        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player3.x, player3.y, 7000,
+                          9000)) {
+        player3.dead = true;
+        player3.death_time = get_unpaused_ms();
+        p1->vely = -JUMP_HEIGHT;
+        p1->in_air = true;
+        p1->stomping = false;
+    }
+}
+
 void flip_blocks(struct player *p1) {
     if (p1->velx == 0) {
         return;
@@ -503,9 +549,7 @@ bool player_died(struct player *p1) {
 }
 
 void draw_player(struct player p1, int32_t pindex) {
-    /*
-
-    */
+    sx = 2 * 7;
     if (!p1.dead) {
         if (p1.stomping) {
             sx = (3 + ((get_unpaused_ms() % 1200) / 300)) *
@@ -531,7 +575,13 @@ void draw_player(struct player p1, int32_t pindex) {
 
 void handle_player(struct player *p1, int32_t player_id) {
     update_player_status(p1, player_id);
+    if (p1->dead && get_unpaused_ms() - p1->death_time > RESPAWN_INTERVAL) {
+        p1->dead = false;
+    }
     if (!p1->joined || p1->dead) {
+        if (p1->death_time + DEATH_BLINK_SPEED * 4 < get_unpaused_ms()) {
+            p1->y = 0;
+        }
         return;
     }
 
@@ -556,6 +606,7 @@ void handle_player(struct player *p1, int32_t player_id) {
         }
         correct_player_stomp_trajectory(p1);
         handle_stomp_obstacle(p1);
+        handle_player_collision(p1);
 
     } else {
         p1->stomped_obstacles = 0;
@@ -621,6 +672,105 @@ bool has_lost() {
 //        strcpy(result, temp);
 //    }
 //}
+
+void draw_player_respawn_progress(struct player p1, int32_t player_id) {
+    struct point positions[24] = {
+        {0, 5}, {1, 5}, {2, 5}, {3, 5}, {3, 4}, {2, 4}, {1, 4}, {0, 4},
+        {0, 3}, {1, 3}, {2, 3}, {3, 3}, {3, 2}, {2, 2}, {1, 2}, {0, 2},
+        {0, 1}, {1, 1}, {2, 1}, {3, 1}, {3, 0}, {2, 0}, {1, 0}, {0, 0},
+    };
+    switch (player_id) {
+    case 0:
+        surf_fill(prog_indic_0, DARK_RED);
+        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+                                 (RESPAWN_INTERVAL / 24));
+             i++) {
+            if (i < 0 || i > 25) {
+                continue;
+            }
+            surf_set_pixel(prog_indic_0, positions[i].x, positions[i].y, GRAY);
+        }
+    case 1:
+        surf_fill(prog_indic_1, DARK_RED);
+        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+                                 (RESPAWN_INTERVAL / 24));
+             i++) {
+            if (i < 0 || i > 24) {
+                continue;
+            }
+            surf_set_pixel(prog_indic_1, positions[i].x, positions[i].y, GRAY);
+        }
+    case 2:
+        surf_fill(prog_indic_2, DARK_RED);
+        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+                                 (RESPAWN_INTERVAL / 24));
+             i++) {
+            if (i < 0 || i > 24) {
+                continue;
+            }
+            surf_set_pixel(prog_indic_2, positions[i].x, positions[i].y, GRAY);
+        }
+    case 3:
+        surf_fill(prog_indic_3, DARK_RED);
+        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+                                 (RESPAWN_INTERVAL / 24));
+             i++) {
+            if (i < 0 || i > 24) {
+                continue;
+            }
+            surf_set_pixel(prog_indic_3, positions[i].x, positions[i].y, GRAY);
+        }
+    }
+    // break;
+    // case 1:
+    //     surf_fill(prog_indic_1, DARK_RED);
+    //     printf("m%d\n",
+    //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
+    //            24);
+    //     for (int32_t i = -1;
+    //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
+    //          / 24; i++) {
+    //         printf("i%d\n", i);
+    //         if (i == -1) {
+    //             continue;
+    //         }
+    //         surf_set_pixel(prog_indic_1, positions[i].x, positions[i].y,
+    //         GRAY);
+    //     }
+    //     break;
+    // case 2:
+    //     surf_fill(prog_indic_2, DARK_RED);
+    //     printf("m%d\n",
+    //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
+    //            24);
+    //     for (int32_t i = -1;
+    //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
+    //          / 24; i++) {
+    //         printf("i%d\n", i);
+    //         if (i == -1) {
+    //             continue;
+    //         }
+    //         surf_set_pixel(prog_indic_2, positions[i].x, positions[i].y,
+    //         GRAY);
+    //     }
+    //     break;
+    // case 3:
+    //     surf_fill(prog_indic_3, DARK_RED);
+    //     printf("m%d\n",
+    //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
+    //            24);
+    //     for (int32_t i = -1;
+    //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
+    //          / 24; i++) {
+    //         printf("i%d\n", i);
+    //         if (i == -1) {
+    //             continue;
+    //         }
+    //         surf_set_pixel(prog_indic_3, positions[i].x, positions[i].y,
+    //         GRAY);
+    //     }
+    //     break;
+}
 
 void render() {
     surf_fill(box, BLACK);
@@ -748,11 +898,15 @@ void render() {
     }
     char box_char[2] = {'!' - 64, 0};
     if (player0.dead) {
-        gpu_print_text(FRONT_BUFFER, 58, 13, RED, DARK_RED, box_char);
+        gpu_print_transparent_text(FRONT_BUFFER, 58, 13, RED, box_char);
         if (player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED)
+                DEATH_BLINK_SPEED) {
             draw_player(player0, 0);
+        }
+        if (player0.respawning) {
+            draw_player_respawn_progress(player0, 0);
+        }
     } else if (player0.joined) {
         gpu_print_text(FRONT_BUFFER, 58, 13, RED, WHITE, box_char);
         draw_player(player0, 0);
@@ -761,11 +915,15 @@ void render() {
     }
 
     if (player1.dead) {
-        gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, RED, box_char);
+        gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE, box_char);
         if (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED)
+                DEATH_BLINK_SPEED) {
             draw_player(player1, 1);
+        }
+        if (player1.respawning) {
+            draw_player_respawn_progress(player1, 1);
+        }
     } else if (player1.joined) {
         gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, WHITE, box_char);
         draw_player(player1, 1);
@@ -774,28 +932,32 @@ void render() {
     }
 
     if (player2.dead) {
-        gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, RED, box_char);
+        gpu_print_transparent_text(FRONT_BUFFER, 84, 13, GREEN, box_char);
         if (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED)
-            // surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-            //                     (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
+                DEATH_BLINK_SPEED) {
             draw_player(player2, 2);
+        }
+        if (player2.respawning) {
+            draw_player_respawn_progress(player2, 2);
+        }
     } else if (player2.joined) {
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, WHITE, box_char);
-        // surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-        //                     (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
         draw_player(player2, 2);
     } else {
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, GRAY, box_char);
     }
 
     if (player3.dead) {
-        gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, RED, box_char);
+        gpu_print_transparent_text(FRONT_BUFFER, 97, 13, YELLOW, box_char);
         if (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED)
+                DEATH_BLINK_SPEED) {
             draw_player(player3, 3);
+        }
+        if (player3.respawning) {
+            draw_player_respawn_progress(player3, 3);
+        }
     } else if (player3.joined) {
         gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, WHITE, box_char);
         draw_player(player3, 3);
@@ -861,6 +1023,20 @@ void render() {
 
     gpu_block_frame();
     gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 34, box->d);
+    gpu_send_buf(BACK_BUFFER, prog_indic_0->w, prog_indic_0->h, 59, 14,
+                 prog_indic_0->d);
+    gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 71, 14,
+                 prog_indic_1->d);
+    gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 85, 14,
+                 prog_indic_2->d);
+    gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 98, 14,
+                 prog_indic_3->d);
+    // gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 41, 34,
+    //              prog_indic_1->d);
+    // gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 41, 34,
+    //              prog_indic_2->d);
+    // gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 41, 34,
+    //              prog_indic_3->d);
     gpu_swap_buf();
 
     //    SDL_SetRenderDrawColor(*renderer_pointer, 0, 255, 0, 255);
@@ -878,7 +1054,15 @@ void render() {
 }
 
 uint8_t start(void) {
+    Surface temp0 = surf_create(4, 6);
+    Surface temp1 = surf_create(4, 6);
+    Surface temp2 = surf_create(4, 6);
+    Surface temp3 = surf_create(4, 6);
     Surface temp = surf_create(1 + (COLUMNS * 13), 2 + (ROWS * 12));
+    prog_indic_0 = &temp0;
+    prog_indic_1 = &temp1;
+    prog_indic_2 = &temp2;
+    prog_indic_3 = &temp3;
     box = &temp;
     warning_texture = surf_create_from_memory(12, 84, ASSET_WARNING_M3IF);
     flash_texture = surf_create_from_memory(12, 84, ASSET_FLASH_M3IF);
@@ -913,24 +1097,28 @@ uint8_t start(void) {
     player0.vely = -100;
     player0.dead = false;
     player0.joined = false;
+    player0.respawning = true;
     player1.x = 96000;
     player1.y = 0;
     player1.velx = 0;
     player1.vely = -100;
     player1.dead = false;
     player1.joined = false;
+    player1.respawning = true;
     player2.x = 96000;
     player2.y = 0;
     player2.velx = 0;
     player2.vely = -100;
     player2.dead = false;
     player2.joined = false;
+    player2.respawning = true;
     player3.x = 96000;
     player3.y = 0;
     player3.velx = 0;
     player3.vely = -100;
     player3.dead = false;
     player3.joined = false;
+    player3.respawning = true;
 
     for (int i = 0; i < ROWS * COLUMNS * 8; i++) {
         struct laser_shot shot;
@@ -999,6 +1187,21 @@ uint8_t start(void) {
 
         timing();
     }
-    render();
+    player0.respawning = false;
+    player1.respawning = false;
+    player2.respawning = false;
+    player3.respawning = false;
+    int32_t lost_time = get_unpaused_ms();
+    player0.dead = true;
+    player0.death_time = get_unpaused_ms();
+    player1.dead = true;
+    player1.death_time = get_unpaused_ms();
+    player2.dead = true;
+    player2.death_time = get_unpaused_ms();
+    player3.dead = true;
+    player3.death_time = get_unpaused_ms();
+    while (lost_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms()) {
+        render();
+    }
     return CODE_EXIT;
 }

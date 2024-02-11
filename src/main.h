@@ -51,6 +51,7 @@
 #define LASER_SHOT_DELAY 4000
 #define DEATH_BLINK_SPEED 750
 #define THREE_FALL_THRESHHOLD 25
+#define RESPAWN_INTERVAL 12000
 
 #define CONTROLLER 3
 
@@ -108,6 +109,7 @@ struct player {
     bool stomping;
     bool joined;
     bool dead;
+    bool respawning;
     int32_t death_time;
 };
 
@@ -167,6 +169,10 @@ int32_t laser_shots_poiter = 0;
 int32_t bit_blocks[ROWS][COLUMNS];
 int32_t delta;
 
+Surface *prog_indic_0;
+Surface *prog_indic_1;
+Surface *prog_indic_2;
+Surface *prog_indic_3;
 Surface warning_texture;
 Surface flash_texture;
 Surface background_texture;
@@ -214,6 +220,8 @@ void handle_box_collision(struct player *p1);
 void correct_player_stomp_trajectory(struct player *p1);
 
 void handle_stomp_obstacle(struct player *p1);
+
+void handle_player_collision(struct player *p1);
 
 void flip_blocks(struct player *p1);
 
