@@ -113,6 +113,10 @@ struct player {
     int32_t death_time;
 };
 
+// struct stage {
+//     int32_t
+// }
+
 struct bit_descturction_animation {
     int32_t animation_start;
     int32_t row;
@@ -145,6 +149,7 @@ int32_t falling_blocks = 0;
 int32_t last_warning_start = 0;
 int32_t last_flash_start = 0;
 int32_t interest_column = 0;
+int32_t last_column = 0;
 int32_t cycles = 0;
 int32_t next_block = UNFLIPPED;
 

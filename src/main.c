@@ -12,8 +12,8 @@
 
 void handle_input(struct player *p1, int32_t player_id) {
 
-    if (input_get_button(player_id, BUTTON_DOWN) && p1->in_air &&
-        !p1->last_down_keystate) {
+    if (input_get_button(player_id, BUTTON_B) && p1->in_air &&
+        !p1->last_b_keystate) {
         p1->stomping = true;
     }
     if (input_get_button(player_id, BUTTON_LEFT) && !p1->stomping) {
@@ -28,8 +28,8 @@ void handle_input(struct player *p1, int32_t player_id) {
     //        event.key.keysym.sym == SDLK_UP) {
     //             p1.vely = -1.3;
     //        }
-    if (input_get_button(player_id, BUTTON_UP) &&
-        (!p1->in_air || p1->gliding) && !p1->last_up_keystate) {
+    if (input_get_button(player_id, BUTTON_A) && (!p1->in_air || p1->gliding) &&
+        !p1->last_a_keystate) {
         if (p1->vely == 0) {
             p1->vely = -JUMP_HEIGHT;
         } else {
@@ -86,6 +86,10 @@ void spawn_warning() {
     cycles++;
     last_warning_start = get_unpaused_ms();
     interest_column = rng_u32() % 6;
+    while (interest_column == last_column) {
+        interest_column = rng_u32() % 6;
+    }
+    last_column = interest_column;
     warning = true;
     flash = false;
     if (rng_u32() % (int)(1 / BLASTER_CHANCE) == 0) {
@@ -93,7 +97,8 @@ void spawn_warning() {
     } else {
         next_block = UNFLIPPED;
     }
-    if (cycles > THREE_FALL_THRESHHOLD && rng_u32() % 5 == 0) {
+    if (falling_blocks < 2 && cycles > THREE_FALL_THRESHHOLD &&
+        rng_u32() % 5 == 0) {
         falling_blocks = 4;
     } else {
         falling_blocks = 1;
@@ -458,7 +463,7 @@ void generate_mesh() {
 }
 
 int32_t get_new_bit_delay() {
-    return MAX(MAX_NEW_BIT_DELAY - (cycles * 40 - cycles), MIN_NEW_BIT_DELAY);
+    return MAX(MAX_NEW_BIT_DELAY - (cycles * 75 - cycles), MIN_NEW_BIT_DELAY);
 }
 
 void handle_block_collision(struct player *p1) {
@@ -575,7 +580,8 @@ void draw_player(struct player p1, int32_t pindex) {
 
 void handle_player(struct player *p1, int32_t player_id) {
     update_player_status(p1, player_id);
-    if (p1->dead && get_unpaused_ms() - p1->death_time > RESPAWN_INTERVAL) {
+    if (p1->respawning && p1->dead &&
+        get_unpaused_ms() - p1->death_time > RESPAWN_INTERVAL) {
         p1->dead = false;
     }
     if (!p1->joined || p1->dead) {
@@ -594,7 +600,8 @@ void handle_player(struct player *p1, int32_t player_id) {
     }
     handle_input(p1, player_id);
     if (p1->stomping) {
-        p1->vely = (int32_t)((STOMP_SPEED - p1->stomped_obstacles * 60) *
+        p1->vely = (int32_t)((STOMP_SPEED - (p1->stomped_obstacles + 3) *
+                                                (STOMP_SPEED / (5 + 3.8))) *
                              MAX(FRAMETIME, delta));
         handle_box_collision(p1);
         if (p1->vely == 0) {
@@ -1023,14 +1030,22 @@ void render() {
 
     gpu_block_frame();
     gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 34, box->d);
-    gpu_send_buf(BACK_BUFFER, prog_indic_0->w, prog_indic_0->h, 59, 14,
-                 prog_indic_0->d);
-    gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 71, 14,
-                 prog_indic_1->d);
-    gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 85, 14,
-                 prog_indic_2->d);
-    gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 98, 14,
-                 prog_indic_3->d);
+    if (player0.respawning) {
+        gpu_send_buf(BACK_BUFFER, prog_indic_0->w, prog_indic_0->h, 59, 14,
+                     prog_indic_0->d);
+    }
+    if (player1.respawning) {
+        gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 72, 14,
+                     prog_indic_1->d);
+    }
+    if (player2.respawning) {
+        gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 85, 14,
+                     prog_indic_2->d);
+    }
+    if (player3.respawning) {
+        gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 98, 14,
+                     prog_indic_3->d);
+    }
     // gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 41, 34,
     //              prog_indic_1->d);
     // gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 41, 34,
@@ -1092,7 +1107,7 @@ uint8_t start(void) {
     //     {AIR, AIR, AIR, AIR, AIR, AIR},
     // };
     player0.x = 96000;
-    player0.y = 79000;
+    player0.y = 0;
     player0.velx = 0;
     player0.vely = -100;
     player0.dead = false;
@@ -1134,10 +1149,10 @@ uint8_t start(void) {
 
     while (!lost) {
         if (pause) {
-            printf("%i\n", get_unpaused_ms());
+            // printf("%i\n", get_unpaused_ms());
             render_pause_menu();
             pause = false;
-            printf("%i\n", get_unpaused_ms());
+            // printf("%i\n", get_unpaused_ms());
             continue;
         }
         //        printf("%d\n", falling_blocks);
@@ -1202,6 +1217,7 @@ uint8_t start(void) {
     player3.death_time = get_unpaused_ms();
     while (lost_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms()) {
         render();
+        timing();
     }
     return CODE_EXIT;
 }
