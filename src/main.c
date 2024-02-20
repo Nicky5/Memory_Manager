@@ -905,14 +905,15 @@ void render() {
     }
     char box_char[2] = {'!' - 64, 0};
     if (player0.dead) {
-        gpu_print_transparent_text(FRONT_BUFFER, 58, 13, RED, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 58, 13, RED, box_char);
+        gpu_print_text(FRONT_BUFFER, 58, 13, RED, DARK_RED, box_char);
         if (player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED) {
             draw_player(player0, 0);
         }
         if (player0.respawning) {
-            draw_player_respawn_progress(player0, 0);
+            // draw_player_respawn_progress(player0, 0);
         }
     } else if (player0.joined) {
         gpu_print_text(FRONT_BUFFER, 58, 13, RED, WHITE, box_char);
@@ -922,14 +923,15 @@ void render() {
     }
 
     if (player1.dead) {
-        gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE, box_char);
+        gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, RED, box_char);
         if (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED) {
             draw_player(player1, 1);
         }
         if (player1.respawning) {
-            draw_player_respawn_progress(player1, 1);
+            // draw_player_respawn_progress(player1, 1);
         }
     } else if (player1.joined) {
         gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, WHITE, box_char);
@@ -939,14 +941,15 @@ void render() {
     }
 
     if (player2.dead) {
-        gpu_print_transparent_text(FRONT_BUFFER, 84, 13, GREEN, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 84, 13, GREEN, box_char);
+        gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, RED, box_char);
         if (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED) {
             draw_player(player2, 2);
         }
         if (player2.respawning) {
-            draw_player_respawn_progress(player2, 2);
+            // draw_player_respawn_progress(player2, 2);
         }
     } else if (player2.joined) {
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, WHITE, box_char);
@@ -956,14 +959,15 @@ void render() {
     }
 
     if (player3.dead) {
-        gpu_print_transparent_text(FRONT_BUFFER, 97, 13, YELLOW, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 97, 13, YELLOW, box_char);
+        gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, RED, box_char);
         if (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
                 DEATH_BLINK_SPEED) {
             draw_player(player3, 3);
         }
         if (player3.respawning) {
-            draw_player_respawn_progress(player3, 3);
+            // draw_player_respawn_progress(player3, 3);
         }
     } else if (player3.joined) {
         gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, WHITE, box_char);
@@ -1030,22 +1034,22 @@ void render() {
 
     gpu_block_frame();
     gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 34, box->d);
-    if (player0.respawning) {
-        gpu_send_buf(BACK_BUFFER, prog_indic_0->w, prog_indic_0->h, 59, 14,
-                     prog_indic_0->d);
-    }
-    if (player1.respawning) {
-        gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 72, 14,
-                     prog_indic_1->d);
-    }
-    if (player2.respawning) {
-        gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 85, 14,
-                     prog_indic_2->d);
-    }
-    if (player3.respawning) {
-        gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 98, 14,
-                     prog_indic_3->d);
-    }
+    // if (player0.respawning) {
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_0->w, prog_indic_0->h, 59, 14,
+    //                  prog_indic_0->d);
+    // }
+    // if (player1.respawning) {
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 72, 14,
+    //                  prog_indic_1->d);
+    // }
+    // if (player2.respawning) {
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 85, 14,
+    //                  prog_indic_2->d);
+    // }
+    // if (player3.respawning) {
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 98, 14,
+    //                  prog_indic_3->d);
+    // }
     // gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 41, 34,
     //              prog_indic_1->d);
     // gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 41, 34,
