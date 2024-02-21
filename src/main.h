@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <timer.h>
 
-#define FPS 60
+#define FPS 30
 #define FRAMETIME ((1.0 / FPS) * 1000)
 
 #define AIR 0
@@ -36,10 +36,10 @@
 #define ROWS 7
 #define COLUMNS 6
 
-#define GRAVITY 8
+#define GRAVITY 10
 #define GLIDE_SPEED 16
-#define JUMP_HEIGHT 2000
-#define STOMP_SPEED 300
+#define JUMP_HEIGHT 85
+#define STOMP_SPEED 7
 #define HORIZONTAL_SPEED 65
 #define MIN_NEW_BIT_DELAY 250
 #define MAX_NEW_BIT_DELAY 4000

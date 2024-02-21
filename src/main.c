@@ -31,9 +31,9 @@ void handle_input(struct player *p1, int32_t player_id) {
     if (input_get_button(player_id, BUTTON_A) && (!p1->in_air || p1->gliding) &&
         !p1->last_a_keystate) {
         if (p1->vely == 0) {
-            p1->vely = -JUMP_HEIGHT;
+            p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
         } else {
-            p1->vely = -JUMP_HEIGHT / 1.6;
+            p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta)) / 1.6;
         }
         //        p1.y -= 0.05;
     }
@@ -259,11 +259,15 @@ void handle_box_collision(struct player *p1) {
 void correct_player_stomp_trajectory(struct player *p1) {
     int32_t x = ((int)round(((float)p1->x / 1000) + 4.5) - 42) % 13;
     if (x > 13 - 2.5) {
-        p1->velx = (int32_t)(-STOMP_SPEED / 2 * MAX(FRAMETIME, delta));
-        p1->vely = (int32_t)(STOMP_SPEED / 20 * MAX(FRAMETIME, delta));
+        p1->velx = (int32_t)(-(STOMP_SPEED * MAX(FRAMETIME, delta)) / 2 *
+                             MAX(FRAMETIME, delta));
+        p1->vely = (int32_t)((STOMP_SPEED * MAX(FRAMETIME, delta)) / 20 *
+                             MAX(FRAMETIME, delta));
     } else if (x < 3.5) {
-        p1->velx = (int32_t)(STOMP_SPEED / 2 * MAX(FRAMETIME, delta));
-        p1->vely = (int32_t)(STOMP_SPEED / 20 * MAX(FRAMETIME, delta));
+        p1->velx = (int32_t)((STOMP_SPEED * MAX(FRAMETIME, delta)) / 2 *
+                             MAX(FRAMETIME, delta));
+        p1->vely = (int32_t)((STOMP_SPEED * MAX(FRAMETIME, delta)) / 20 *
+                             MAX(FRAMETIME, delta));
     }
 }
 
@@ -285,7 +289,7 @@ void handle_stomp_obstacle(struct player *p1) {
                 if (bit_blocks[i][j] == UNFLIPPED) {
                     bit_blocks[i][j] = FLIPPED;
                     add_score(10);
-                    p1->vely = -JUMP_HEIGHT;
+                    p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
                     p1->in_air = true;
                     p1->stomping = false;
                     return;
@@ -301,7 +305,7 @@ void handle_stomp_obstacle(struct player *p1) {
                     p1->stomped_obstacles++;
 
                 } else if (bit_blocks[i][j] == ERR_BLOCK) {
-                    p1->vely = -JUMP_HEIGHT;
+                    p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
                     p1->in_air = true;
                     p1->stomping = false;
                     return;
@@ -318,7 +322,7 @@ void handle_player_collision(struct player *p1) {
                           9000)) {
         player0.dead = true;
         player0.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
         p1->in_air = true;
         p1->stomping = false;
     }
@@ -328,7 +332,7 @@ void handle_player_collision(struct player *p1) {
                           9000)) {
         player1.dead = true;
         player1.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
         p1->in_air = true;
         p1->stomping = false;
     }
@@ -338,7 +342,7 @@ void handle_player_collision(struct player *p1) {
                           9000)) {
         player2.dead = true;
         player2.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
         p1->in_air = true;
         p1->stomping = false;
     }
@@ -348,7 +352,7 @@ void handle_player_collision(struct player *p1) {
                           9000)) {
         player3.dead = true;
         player3.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
         p1->in_air = true;
         p1->stomping = false;
     }
@@ -600,13 +604,15 @@ void handle_player(struct player *p1, int32_t player_id) {
     }
     handle_input(p1, player_id);
     if (p1->stomping) {
-        p1->vely = (int32_t)((STOMP_SPEED - (p1->stomped_obstacles + 3) *
-                                                (STOMP_SPEED / (5 + 3.8))) *
+        p1->vely = (int32_t)(((STOMP_SPEED * MAX(FRAMETIME, delta)) -
+                              (p1->stomped_obstacles + 3) *
+                                  ((STOMP_SPEED * MAX(FRAMETIME, delta)) /
+                                   (5 + 3.8))) *
                              MAX(FRAMETIME, delta));
         handle_box_collision(p1);
         if (p1->vely == 0) {
 
-            p1->vely = -JUMP_HEIGHT;
+            p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
             p1->in_air = true;
             p1->stomping = false;
             return;
