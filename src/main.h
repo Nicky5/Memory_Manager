@@ -24,7 +24,7 @@
 #include <stdint.h>
 #include <timer.h>
 
-#define FPS 30
+#define FPS 10
 #define FRAMETIME ((1.0 / FPS) * 1000)
 
 #define AIR 0
@@ -36,11 +36,11 @@
 #define ROWS 7
 #define COLUMNS 6
 
-#define GRAVITY 10
-#define GLIDE_SPEED 16
-#define JUMP_HEIGHT 85
-#define STOMP_SPEED 7
-#define HORIZONTAL_SPEED 65
+#define GRAVITY (10 / 1000.0)
+#define GLIDE_SPEED (16 / 1000.0)
+#define JUMP_HEIGHT (85 / 1000.0)
+#define STOMP_SPEED (7 / 1000.0)
+#define HORIZONTAL_SPEED (65 / 1000.0)
 #define MIN_NEW_BIT_DELAY 250
 #define MAX_NEW_BIT_DELAY 4000
 #define WARNING_DURATION 1000
@@ -53,7 +53,7 @@
 #define THREE_FALL_THRESHHOLD 25
 #define RESPAWN_INTERVAL 12000
 
-#define CONTROLLER 3
+#define ALLOWED_FLOAT_ERROR 0.0001
 
 #define BLACK 0
 #define WHITE 1
@@ -73,15 +73,15 @@ uint16_t palette[8] = {
     COLOR_TO_GPIO(0b000, 0b111, 0b111), COLOR_TO_GPIO(0b011, 0b011, 0b011)};
 
 struct point {
-    int32_t x;
-    int32_t y;
+    float x;
+    float y;
 };
 
 struct line {
-    int32_t x;
-    int32_t y;
-    int32_t a;
-    int32_t b;
+    float x;
+    float y;
+    float a;
+    float b;
 };
 
 struct line vertical_mesh[7];
@@ -91,10 +91,10 @@ struct line horizontal_mesh[7];
 int32_t horizontal_mesh_count = 0;
 
 struct player {
-    int32_t x;
-    int32_t y;
-    int32_t velx;
-    int32_t vely;
+    float x;
+    float y;
+    float velx;
+    float vely;
     int32_t stomped_obstacles;
     bool last_up_keystate;
     bool last_down_keystate;

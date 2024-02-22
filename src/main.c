@@ -12,25 +12,30 @@
 
 void handle_input(struct player *p1, int32_t player_id) {
 
-    if (input_get_button(player_id, BUTTON_B) && p1->in_air &&
-        !p1->last_b_keystate) {
+    // if (input_get_button(player_id, BUTTON_B) && p1->in_air &&
+    //     !p1->last_b_keystate) {
+    if (input_get_button(player_id, BUTTON_DOWN) && p1->in_air &&
+        !p1->last_down_keystate) {
         p1->stomping = true;
     }
     if (input_get_button(player_id, BUTTON_LEFT) && !p1->stomping) {
-        p1->velx += (int32_t)(-HORIZONTAL_SPEED * MAX(FRAMETIME, delta));
+        p1->velx += -HORIZONTAL_SPEED * MAX(FRAMETIME, delta);
     }
     if (input_get_button(player_id, BUTTON_RIGHT) && !p1->stomping) {
-        p1->velx += (int32_t)(HORIZONTAL_SPEED * MAX(FRAMETIME, delta));
-        ;
+        p1->velx += HORIZONTAL_SPEED * MAX(FRAMETIME, delta);
     }
 
     //        if ((! p1.in_air or  p1.gliding) &&event.type == SDL_KEYDOWN &&
     //        event.key.keysym.sym == SDLK_UP) {
     //             p1.vely = -1.3;
     //        }
-    if (input_get_button(player_id, BUTTON_A) && (!p1->in_air || p1->gliding) &&
-        !p1->last_a_keystate) {
-        if (p1->vely == 0) {
+
+    // if (input_get_button(player_id, BUTTON_A) && (!p1->in_air || p1->gliding)
+    // &&
+    //     !p1->last_a_keystate) {
+    if (input_get_button(player_id, BUTTON_UP) &&
+        (!p1->in_air || p1->gliding) && !p1->last_up_keystate) {
+        if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
             p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
         } else {
             p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta)) / 1.6;
@@ -86,8 +91,12 @@ void spawn_warning() {
     cycles++;
     last_warning_start = get_unpaused_ms();
     interest_column = rng_u32() % 6;
-    while (interest_column == last_column) {
-        interest_column = rng_u32() % 6;
+    if (cycles == 1) {
+        interest_column = 0;
+    } else {
+        while (interest_column == last_column) {
+            interest_column = rng_u32() % 6;
+        }
     }
     last_column = interest_column;
     warning = true;
@@ -232,59 +241,60 @@ void update_laser_shots() {
 void handle_box_collision(struct player *p1) {
     p1->gliding = false;
     if (p1->velx > 0) {
-        if (p1->x + p1->velx + 7 * 1000 > 119 * 1000) {
+        if (p1->x + p1->velx + 7 > 119) {
             p1->velx = 0;
-            p1->x = 119 * 1000 - 7 * 1000;
+            p1->x = 119 - 7;
             p1->gliding = true;
         }
     } else if (p1->velx < 0) {
-        if (p1->x + p1->velx < 43 * 1000) {
+        if (p1->x + p1->velx < 43) {
             p1->velx = 0;
-            p1->x = 42 * 1000 + 2;
+            p1->x = 42 + 2;
             p1->gliding = true;
         }
     }
-    if (p1->vely >= 0 && p1->y >= 110000) {
+    if (p1->vely >= 0 && p1->y >= 110) {
         p1->vely = 0;
-        p1->y = 119 * 1000 - 9 * 1000;
+        p1->y = 119 - 9;
         p1->in_air = false;
     } else {
         p1->in_air = true;
     }
-    if (p1->vely <= 0 && p1->y <= 32 * 1000) {
+    if (p1->vely <= 0 && p1->y <= 32) {
         p1->vely = 0;
     }
 }
 
 void correct_player_stomp_trajectory(struct player *p1) {
-    int32_t x = ((int)round(((float)p1->x / 1000) + 4.5) - 42) % 13;
+    float x = ((int)round(p1->x + 4.5) - 42) % 13;
     if (x > 13 - 2.5) {
-        p1->velx = (int32_t)(-(STOMP_SPEED * MAX(FRAMETIME, delta)) / 2 *
-                             MAX(FRAMETIME, delta));
-        p1->vely = (int32_t)((STOMP_SPEED * MAX(FRAMETIME, delta)) / 20 *
-                             MAX(FRAMETIME, delta));
+        p1->velx =
+            -(STOMP_SPEED * MAX(FRAMETIME, delta)) / 2 * MAX(FRAMETIME, delta);
+        p1->vely =
+            (STOMP_SPEED * MAX(FRAMETIME, delta)) / 20 * MAX(FRAMETIME, delta);
     } else if (x < 3.5) {
-        p1->velx = (int32_t)((STOMP_SPEED * MAX(FRAMETIME, delta)) / 2 *
-                             MAX(FRAMETIME, delta));
-        p1->vely = (int32_t)((STOMP_SPEED * MAX(FRAMETIME, delta)) / 20 *
-                             MAX(FRAMETIME, delta));
+        p1->velx =
+            (STOMP_SPEED * MAX(FRAMETIME, delta)) / 2 * MAX(FRAMETIME, delta);
+        p1->vely =
+            (STOMP_SPEED * MAX(FRAMETIME, delta)) / 20 * MAX(FRAMETIME, delta);
     }
 }
 
 void handle_stomp_obstacle(struct player *p1) {
-    if (p1->vely == 0) {
+    if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
+        p1->vely = 0;
         return;
     }
     for (int32_t i = 0; i < ROWS; ++i) {
         for (int32_t j = 0; j < COLUMNS; ++j) {
-            int32_t x = 42000 + (j * 13000);
-            int32_t y = 35000 + (i * 12000);
-            int32_t w = 12000;
-            int32_t h = 12000;
+            int32_t x = 42 + (j * 13);
+            int32_t y = 35 + (i * 12);
+            int32_t w = 12;
+            int32_t h = 12;
 
             struct point p;
-            p.y = p1->y + 9000 + p1->vely;
-            p.x = p1->x + 3500;
+            p.y = p1->y + 9 + p1->vely;
+            p.x = p1->x + 3.5;
             if (is_point_inside_rectangle(p.x, p.y, x, y, h, w)) {
                 if (bit_blocks[i][j] == UNFLIPPED) {
                     bit_blocks[i][j] = FLIPPED;
@@ -318,8 +328,7 @@ void handle_stomp_obstacle(struct player *p1) {
 void handle_player_collision(struct player *p1) {
     if ((!player0.stomping && !player0.dead && player0.joined) &&
         (player0.y > p1->y) &&
-        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player0.x, player0.y, 7000,
-                          9000)) {
+        rectanglesOverlap(p1->x, p1->y, 7, 9, player0.x, player0.y, 7, 9)) {
         player0.dead = true;
         player0.death_time = get_unpaused_ms();
         p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
@@ -328,8 +337,7 @@ void handle_player_collision(struct player *p1) {
     }
     if ((!player1.stomping && !player1.dead && player1.joined) &&
         (player1.y > p1->y) &&
-        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player1.x, player1.y, 7000,
-                          9000)) {
+        rectanglesOverlap(p1->x, p1->y, 7, 9, player1.x, player1.y, 7, 9)) {
         player1.dead = true;
         player1.death_time = get_unpaused_ms();
         p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
@@ -338,8 +346,7 @@ void handle_player_collision(struct player *p1) {
     }
     if ((!player2.stomping && !player2.dead && player2.joined) &&
         (player2.y > p1->y) &&
-        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player2.x, player2.y, 7000,
-                          9000)) {
+        rectanglesOverlap(p1->x, p1->y, 7, 9, player2.x, player2.y, 7, 9)) {
         player2.dead = true;
         player2.death_time = get_unpaused_ms();
         p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
@@ -348,8 +355,7 @@ void handle_player_collision(struct player *p1) {
     }
     if ((!player3.stomping && !player3.dead && player3.joined) &&
         (player3.y > p1->y) &&
-        rectanglesOverlap(p1->x, p1->y, 7000, 9000, player3.x, player3.y, 7000,
-                          9000)) {
+        rectanglesOverlap(p1->x, p1->y, 7, 9, player3.x, player3.y, 7, 9)) {
         player3.dead = true;
         player3.death_time = get_unpaused_ms();
         p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
@@ -368,16 +374,16 @@ void flip_blocks(struct player *p1) {
                 continue;
             }
 
-            int32_t x = 42000 + (j * 13000);
-            int32_t y = 35000 + (i * 12000);
-            int32_t w = 12000;
-            int32_t h = 12000;
+            int32_t x = 42 + (j * 13);
+            int32_t y = 35 + (i * 12);
+            int32_t w = 12;
+            int32_t h = 12;
 
             struct point p;
-            p.y = p1->y + 4500;
+            p.y = p1->y + 4.5;
             p.x = p1->x + p1->velx;
             if (p1->velx > 0)
-                p.x += 7000;
+                p.x += 7;
             if (is_point_inside_rectangle(p.x, p.y, x, y, h, w)) {
                 bit_blocks[i][j] = FLIPPED;
                 add_score(10);
@@ -411,20 +417,20 @@ void generate_mesh() {
 
         if (left_height < right_height) {
             struct line new_line;
-            new_line.x = (42 + ((i + 1) * 13) + 1) * 1000 - 3500;
+            new_line.x = 42 + (i + 1) * 13 + 1 - 3.499;
             new_line.a = new_line.x;
 
-            new_line.y = 120000;
-            new_line.b = ((119 - (right_height * 12)) * 1000) - 4500 + 1;
+            new_line.y = 120;
+            new_line.b = 119 - (right_height * 12) - 4.499;
             vertical_mesh[vertical_mesh_count] = new_line;
             vertical_mesh_count++;
         } else if (left_height > right_height) {
             struct line new_line;
-            new_line.x = (41 + (i + 1) * 13) * 1000 + 3500;
+            new_line.x = 41 + (i + 1) * 13 + 3.499;
             new_line.a = new_line.x;
 
-            new_line.y = ((119 - (left_height * 12)) * 1000) - 4500 + 1;
-            new_line.b = 120000;
+            new_line.y = 119 - (left_height * 12) - 4.499;
+            new_line.b = 120;
             vertical_mesh[vertical_mesh_count] = new_line;
             vertical_mesh_count++;
         }
@@ -439,13 +445,13 @@ void generate_mesh() {
         }
         if (i != 0 && horizontal_mesh_count != 0 &&
             current_height == left_height) {
-            horizontal_mesh[horizontal_mesh_count - 1].a += 13000;
+            horizontal_mesh[horizontal_mesh_count - 1].a += 13;
         } else {
             struct line new_line;
-            new_line.x = (42 + (i * 13)) * 1000 - 3500;
-            new_line.a = new_line.x + 12000 + 7000;
+            new_line.x = 42 + (i * 13) - 3.5;
+            new_line.a = new_line.x + 12 + 7;
 
-            new_line.y = (119 - (current_height * 12)) * 1000 - 4500;
+            new_line.y = 119 - (current_height * 12) - 4.5;
             new_line.b = new_line.y;
             horizontal_mesh[horizontal_mesh_count] = new_line;
             horizontal_mesh_count++;
@@ -472,8 +478,8 @@ int32_t get_new_bit_delay() {
 
 void handle_block_collision(struct player *p1) {
     struct point center;
-    center.x = p1->x + 3500;
-    center.y = p1->y + 4500;
+    center.x = p1->x + 3.5;
+    center.y = p1->y + 4.5;
 
     struct point center_vel;
     center_vel.x = center.x + p1->velx;
@@ -486,23 +492,23 @@ void handle_block_collision(struct player *p1) {
     center_line.b = center_vel.y;
     // redner mesh
 
-    if (p1->vely >= -40) {
+    if (p1->vely >= -0.040) {
         for (int32_t i = 0; i < horizontal_mesh_count; i++) {
             //            printf("1, %d\n", i);
             bool g = linesIntersect(horizontal_mesh[i], center_line);
             //            printf("2, %d\n", i);
             if (g) {
                 p1->vely = 0;
-                p1->y = horizontal_mesh[i].b - 4500;
+                p1->y = horizontal_mesh[i].b - 4.5;
                 p1->in_air = false;
             }
         }
     }
-    if (p1->vely == 0) {
+    if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
+        p1->vely = 0;
         struct point gravity_center_vel;
         gravity_center_vel.x = center.x + p1->velx;
-        gravity_center_vel.y =
-            center.y + (int32_t)(GRAVITY * MAX(FRAMETIME, delta));
+        gravity_center_vel.y = center.y + GRAVITY * MAX(FRAMETIME, delta);
         struct line gravity_center_line;
         gravity_center_line.x = center.x;
         gravity_center_line.y = center.y;
@@ -532,8 +538,8 @@ void handle_block_collision(struct player *p1) {
 bool player_died(struct player *p1) {
 
     if (flash_spawned) {
-        if (rectanglesOverlap((p1->x + 1) / 1000 - 41, (p1->y + 1) / 1000 - 34,
-                              5, 7, (interest_column)*13, 0, 12, 120)) {
+        if (rectanglesOverlap(p1->x + 1 - 41, p1->y + 1 - 34, 5, 7,
+                              (interest_column)*13, 0, 12, 120)) {
             return true;
         }
     }
@@ -548,8 +554,8 @@ bool player_died(struct player *p1) {
                          13) +
                         1;
             int32_t h = 4;
-            if (rectanglesOverlap((p1->x + 1) / 1000 - 41,
-                                  (p1->y + 1) / 1000 - 34, 7, 9, x, y, w, h)) {
+            if (rectanglesOverlap(p1->x + 1 - 41, p1->y + 1 - 34, 7, 9, x, y, w,
+                                  h)) {
                 return true;
             }
         }
@@ -578,8 +584,8 @@ void draw_player(struct player p1, int32_t pindex) {
             sx = 2 * 7; // index 2 is for looking at straight ahead
         }
     }
-    surf_draw_masked_subsurf(box, &player_texture, (p1.x) / 1000 - 41,
-                             (p1.y) / 1000 - 34, sx, pindex * 9, 7, 9, BLACK);
+    surf_draw_masked_subsurf(box, &player_texture, p1.x - 41, p1.y - 34, sx,
+                             pindex * 9, 7, 9, BLACK);
 }
 
 void handle_player(struct player *p1, int32_t player_id) {
@@ -597,20 +603,20 @@ void handle_player(struct player *p1, int32_t player_id) {
 
     p1->velx = 0;
     if (p1->in_air) {
-        p1->vely += (int32_t)(GRAVITY * MAX(FRAMETIME, delta));
-        ;
+        // p1->vely += GRAVITY * MAX(FRAMETIME, delta);
+        p1->vely += GRAVITY * MAX(FRAMETIME, delta);
     } else {
         p1->vely = 0;
     }
     handle_input(p1, player_id);
     if (p1->stomping) {
-        p1->vely = (int32_t)(((STOMP_SPEED * MAX(FRAMETIME, delta)) -
-                              (p1->stomped_obstacles + 3) *
-                                  ((STOMP_SPEED * MAX(FRAMETIME, delta)) /
-                                   (5 + 3.8))) *
-                             MAX(FRAMETIME, delta));
+        p1->vely = (STOMP_SPEED * MAX(FRAMETIME, delta) -
+                    (p1->stomped_obstacles + 3) *
+                        ((STOMP_SPEED * MAX(FRAMETIME, delta)) / (5 + 3.8))) *
+                   MAX(FRAMETIME, delta);
         handle_box_collision(p1);
-        if (p1->vely == 0) {
+        if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
+            p1->vely = 0;
 
             p1->vely = -(JUMP_HEIGHT * MAX(FRAMETIME, delta));
             p1->in_air = true;
@@ -627,14 +633,16 @@ void handle_player(struct player *p1, int32_t player_id) {
 
         handle_box_collision(p1);
         handle_block_collision(p1);
-        if (p1->gliding &&
-            p1->vely > (int32_t)(GLIDE_SPEED * MAX(FRAMETIME, delta))) {
-            p1->vely = (int32_t)(GLIDE_SPEED * MAX(FRAMETIME, delta));
+        if (p1->gliding && p1->vely > GLIDE_SPEED * MAX(FRAMETIME, delta)) {
+            p1->vely = GLIDE_SPEED * MAX(FRAMETIME, delta);
         }
     }
     p1->dead = player_died(p1);
     if (p1->dead) {
         p1->death_time = get_unpaused_ms();
+    }
+    if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
+        p1->vely = 0;
     }
     p1->x += p1->velx;
     p1->y += p1->vely;
@@ -654,10 +662,10 @@ bool has_lost() {
         }
     }
 
-    if (!player0.joined && !player1.joined && !player2.joined &&
-        !player3.joined) {
-        pause = true;
-    }
+    // if (!player0.joined && !player1.joined && !player2.joined &&
+    //     !player3.joined) {
+    //     pause = true;
+    // }
 
     for (int32_t i = 0; i < COLUMNS; i++) {
         if (bit_blocks[1][i] == ERR_BLOCK) {
@@ -788,15 +796,18 @@ void draw_player_respawn_progress(struct player p1, int32_t player_id) {
 void render() {
     surf_fill(box, BLACK);
     // render Background
-    char paddedScore[14];
-    char paddedHighScore[14];
-    sprintf(paddedScore, "%07i", visualized_score);
-    sprintf(paddedHighScore, "%07i", highscore);
+    // char paddedScore[14];
+    // char paddedHighScore[14];
+    char text_to_print[29];
+    sprintf(text_to_print, "%07i/%07i", visualized_score, highscore);
+    // text_to_print[0] = *paddedScore;
+    // text_to_print[13] = '/';
+    // text_to_print[14] = *paddedHighScore;
 
-    gpu_print_text(FRONT_BUFFER, 38 - 3, 3, WHITE, BLACK, paddedScore);
-    gpu_print_text(FRONT_BUFFER, (160 / 2) - 2, 3, WHITE, BLACK, "/");
-    gpu_print_text(FRONT_BUFFER, (160 / 2) + 4, 3, WHITE, BLACK,
-                   paddedHighScore);
+    gpu_print_text(FRONT_BUFFER, 38 - 3, 3, WHITE, BLACK, text_to_print);
+    // gpu_print_text(FRONT_BUFFER, (160 / 2) - 2, 3, WHITE, BLACK, "/");
+    // gpu_print_text(FRONT_BUFFER, (160 / 2) + 4, 3, WHITE, BLACK,
+    //    paddedHighScore);
 
     surf_draw_masked_surf(box, &background_texture, 0, 0, BLACK);
 
@@ -825,7 +836,8 @@ void render() {
         int32_t x = 1 + (interest_column * 13);
         int32_t y = 1;
         //        int32_t w = 12;
-        //        int32_t h = 12 * (column_air_amount(interest_column));
+        //        int32_t h = 12 *
+        //        (column_air_amount(interest_column));
         surf_draw_masked_surf(box, &warning_texture, x, y, BLACK);
         switch (next_block) {
         case UNFLIPPED:
@@ -845,8 +857,9 @@ void render() {
         //        SDL_Rect source_rect;
         //        source_rect.x = 0;
         //        source_rect.y = 84 - (12 *
-        //        (column_air_amount(interest_column))); source_rect.w = 12;
-        //        source_rect.h = 12 * (column_air_amount(interest_column));
+        //        (column_air_amount(interest_column)));
+        //        source_rect.w = 12; source_rect.h = 12 *
+        //        (column_air_amount(interest_column));
         surf_draw_masked_surf(box, &flash_texture, x, y, BLACK);
     }
 
@@ -893,9 +906,12 @@ void render() {
             int32_t w = 12;
             int32_t h = 12;
 
-            //            std::cout << zero_texture.get_surface_rect(count,
-            //            0)->x << ", " << zero_texture.get_surface_rect(count,
-            //            0)->y << "\n";
+            //            std::cout <<
+            //            zero_texture.get_surface_rect(count,
+            //            0)->x << ", " <<
+            //            zero_texture.get_surface_rect(count,
+            //            0)->y <<
+            //            "\n";
             switch (bit_blocks[i][j]) {
             case UNFLIPPED:
                 surf_draw_surf(box, &unflipped_texture, x, y);
@@ -909,9 +925,11 @@ void render() {
             }
         }
     }
+
     char box_char[2] = {'!' - 64, 0};
     if (player0.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 58, 13, RED, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 58, 13, RED,
+        // box_char);
         gpu_print_text(FRONT_BUFFER, 58, 13, RED, DARK_RED, box_char);
         if (player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
@@ -929,7 +947,8 @@ void render() {
     }
 
     if (player1.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE,
+        // box_char);
         gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, RED, box_char);
         if (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
@@ -947,7 +966,8 @@ void render() {
     }
 
     if (player2.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 84, 13, GREEN, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 84, 13,
+        // GREEN, box_char);
         gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, RED, box_char);
         if (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
@@ -965,7 +985,8 @@ void render() {
     }
 
     if (player3.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 97, 13, YELLOW, box_char);
+        // gpu_print_transparent_text(FRONT_BUFFER, 97, 13,
+        // YELLOW, box_char);
         gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, RED, box_char);
         if (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
             (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
@@ -985,51 +1006,68 @@ void render() {
     // //debug player contour lines
     // if (player0.joined && !player0.dead)
     //     surf_draw_rectangle(box, (player0.x - 1) / 1000 - 41,
-    //                         (player0.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player0.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
     // if (player1.joined && !player1.dead)
     //     surf_draw_rectangle(box, (player1.x - 1) / 1000 - 41,
-    //                         (player1.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player1.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
     // if (player2.joined && !player2.dead)
     //     surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-    //                         (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player2.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
     // if (player3.joined && !player3.dead)
     //     surf_draw_rectangle(box, (player3.x - 1) / 1000 - 41,
-    //                         (player3.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player3.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
 
     // if (player0.joined && player0.dead &&
-    //     player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-    //     (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //     player0.death_time + DEATH_BLINK_SPEED * 4 >
+    //     get_unpaused_ms() && (player0.death_time -
+    //     get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //     <
     //         DEATH_BLINK_SPEED)
     //     surf_draw_rectangle(box, (player0.x - 1) / 1000 - 41,
-    //                         (player0.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player0.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
 
     // if (player1.joined && player1.dead &&
-    //     player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-    //     (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //     player1.death_time + DEATH_BLINK_SPEED * 4 >
+    //     get_unpaused_ms() && (player1.death_time -
+    //     get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //     <
     //         DEATH_BLINK_SPEED)
     //     surf_draw_rectangle(box, (player1.x - 1) / 1000 - 41,
-    //                         (player1.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player1.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
 
     // if (player2.joined && player2.dead &&
-    //     player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-    //     (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //     player2.death_time + DEATH_BLINK_SPEED * 4 >
+    //     get_unpaused_ms() && (player2.death_time -
+    //     get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //     <
     //         DEATH_BLINK_SPEED)
     //     surf_draw_rectangle(box, (player2.x - 1) / 1000 - 41,
-    //                         (player2.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player2.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
 
     // if (player3.joined && player3.dead &&
-    //     player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-    //     (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //     player3.death_time + DEATH_BLINK_SPEED * 4 >
+    //     get_unpaused_ms() && (player3.death_time -
+    //     get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //     <
     //         DEATH_BLINK_SPEED)
     //     surf_draw_rectangle(box, (player3.x - 1) / 1000 - 41,
-    //                         (player3.y - 1) / 1000 - 34, 7, 9, WHITE);
+    //                         (player3.y - 1) / 1000 - 34, 7, 9,
+    //                         WHITE);
 
     // // debug collision contour lines
     //    for (int32_t i = 0; i < horizontal_mesh_count; i++) {
-    //        surf_draw_line(box, horizontal_mesh[i].x / 1000 - 41,
-    //        horizontal_mesh[i].y / 1000 - 34,
+    //        surf_draw_line(box, horizontal_mesh[i].x / 1000 -
+    //        41, horizontal_mesh[i].y / 1000 - 34,
     //                       horizontal_mesh[i].a / 1000 - 41,
-    //                       horizontal_mesh[i].b / 1000 - 34, BLUE);
+    //                       horizontal_mesh[i].b / 1000 - 34,
+    //                       BLUE);
     //    }
     // for (int32_t i = 0; i < vertical_mesh_count; i++) {
     //     surf_draw_line(box, vertical_mesh[i].x / 1000 - 41,
@@ -1041,40 +1079,51 @@ void render() {
     gpu_block_frame();
     gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 34, box->d);
     // if (player0.respawning) {
-    //     gpu_send_buf(BACK_BUFFER, prog_indic_0->w, prog_indic_0->h, 59, 14,
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_0->w,
+    //     prog_indic_0->h, 59, 14,
     //                  prog_indic_0->d);
     // }
     // if (player1.respawning) {
-    //     gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 72, 14,
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_1->w,
+    //     prog_indic_1->h, 72, 14,
     //                  prog_indic_1->d);
     // }
     // if (player2.respawning) {
-    //     gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 85, 14,
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_2->w,
+    //     prog_indic_2->h, 85, 14,
     //                  prog_indic_2->d);
     // }
     // if (player3.respawning) {
-    //     gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 98, 14,
+    //     gpu_send_buf(BACK_BUFFER, prog_indic_3->w,
+    //     prog_indic_3->h, 98, 14,
     //                  prog_indic_3->d);
     // }
-    // gpu_send_buf(BACK_BUFFER, prog_indic_1->w, prog_indic_1->h, 41, 34,
+    // gpu_send_buf(BACK_BUFFER, prog_indic_1->w,
+    // prog_indic_1->h, 41, 34,
     //              prog_indic_1->d);
-    // gpu_send_buf(BACK_BUFFER, prog_indic_2->w, prog_indic_2->h, 41, 34,
+    // gpu_send_buf(BACK_BUFFER, prog_indic_2->w,
+    // prog_indic_2->h, 41, 34,
     //              prog_indic_2->d);
-    // gpu_send_buf(BACK_BUFFER, prog_indic_3->w, prog_indic_3->h, 41, 34,
+    // gpu_send_buf(BACK_BUFFER, prog_indic_3->w,
+    // prog_indic_3->h, 41, 34,
     //              prog_indic_3->d);
     gpu_swap_buf();
 
-    //    SDL_SetRenderDrawColor(*renderer_pointer, 0, 255, 0, 255);
-    //    for (int32_t i = 0; i < vertical_mesh_count; i++) {
-    //        SDL_RenderDrawLine(*renderer_pointer, vertical_mesh[i].x * 9,
-    //        vertical_mesh[i].y * 9, vertical_mesh[i].a * 9, vertical_mesh[i].b
+    //    SDL_SetRenderDrawColor(*renderer_pointer, 0, 255, 0,
+    //    255); for (int32_t i = 0; i < vertical_mesh_count; i++)
+    //    {
+    //        SDL_RenderDrawLine(*renderer_pointer,
+    //        vertical_mesh[i].x * 9, vertical_mesh[i].y * 9,
+    //        vertical_mesh[i].a * 9, vertical_mesh[i].b
     //        * 9);
     //    }
-    //    SDL_SetRenderDrawColor(*renderer_pointer, 0, 255, 0, 255);
-    //    for (int32_t i = 0; i < horizontal_mesh_count; i++) {
-    //        SDL_RenderDrawLine(*renderer_pointer, horizontal_mesh[i].x * 9,
-    //        horizontal_mesh[i].y * 9, horizontal_mesh[i].a * 9,
-    //        horizontal_mesh[i].b * 9);
+    //    SDL_SetRenderDrawColor(*renderer_pointer, 0, 255, 0,
+    //    255); for (int32_t i = 0; i < horizontal_mesh_count;
+    //    i++) {
+    //        SDL_RenderDrawLine(*renderer_pointer,
+    //        horizontal_mesh[i].x * 9, horizontal_mesh[i].y * 9,
+    //        horizontal_mesh[i].a * 9, horizontal_mesh[i].b *
+    //        9);
     //    }
 }
 
@@ -1111,36 +1160,37 @@ uint8_t start(void) {
         }
     }
     // bit_blocks[ROWS][COLUMNS] = {
-    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
-    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
-    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
-    //     {AIR, AIR, AIR, AIR, AIR, AIR},
+    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR,
+    //     AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR,
+    //     AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR, AIR, AIR},
+    //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR,
+    //     AIR, AIR},
     // };
-    player0.x = 96000;
+    player0.x = 96;
     player0.y = 0;
     player0.velx = 0;
-    player0.vely = -100;
+    player0.vely = -0.1;
     player0.dead = false;
     player0.joined = false;
     player0.respawning = true;
-    player1.x = 96000;
+    player1.x = 96;
     player1.y = 0;
     player1.velx = 0;
-    player1.vely = -100;
+    player1.vely = -0.1;
     player1.dead = false;
     player1.joined = false;
     player1.respawning = true;
-    player2.x = 96000;
+    player2.x = 96;
     player2.y = 0;
     player2.velx = 0;
-    player2.vely = -100;
+    player2.vely = -0.1;
     player2.dead = false;
     player2.joined = false;
     player2.respawning = true;
-    player3.x = 96000;
+    player3.x = 96;
     player3.y = 0;
     player3.velx = 0;
-    player3.vely = -100;
+    player3.vely = -0.1;
     player3.dead = false;
     player3.joined = false;
     player3.respawning = true;

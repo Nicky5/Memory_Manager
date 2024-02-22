@@ -7,8 +7,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-bool is_point_inside_rectangle(int32_t px, int32_t py, int32_t x, int32_t y,
-                               int32_t h, int32_t w) {
+bool is_point_inside_rectangle(float px, float py, float x, float y, float h,
+                               float w) {
     if (px >= x && px <= x + w && py >= y && py <= y + h) {
         return true;
     }
@@ -16,14 +16,14 @@ bool is_point_inside_rectangle(int32_t px, int32_t py, int32_t x, int32_t y,
 }
 
 bool linesIntersect(struct line a, struct line b) {
-    int32_t x1 = a.x;
-    int32_t y1 = a.y;
-    int32_t x2 = a.a;
-    int32_t y2 = a.b;
-    int32_t x3 = b.x;
-    int32_t y3 = b.y;
-    int32_t x4 = b.a;
-    int32_t y4 = b.b;
+    float x1 = a.x;
+    float y1 = a.y;
+    float x2 = a.a;
+    float y2 = a.b;
+    float x3 = b.x;
+    float y3 = b.y;
+    float x4 = b.a;
+    float y4 = b.b;
 
     float den = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
     float ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / den;
@@ -35,8 +35,8 @@ bool linesIntersect(struct line a, struct line b) {
     return false;
 }
 
-bool rectanglesOverlap(int32_t x1, int32_t y1, int32_t w1, int32_t h1,
-                       int32_t x2, int32_t y2, int32_t w2, int32_t h2) {
+bool rectanglesOverlap(float x1, float y1, float w1, float h1, float x2,
+                       float y2, float w2, float h2) {
     if (x1 > x2 + w2 || x1 + w1 < x2 || y1 > y2 + h2 || y1 + h1 < y2) {
         return false;
     }
@@ -54,6 +54,7 @@ void timing() {
         timer_block_ms(FRAMETIME - delta);
     }
     delta_start = timer_get_ms();
+    printf("%d\n", delta);
 }
 
 #endif
