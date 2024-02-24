@@ -37,9 +37,9 @@ void handle_input(struct player *p1, int32_t player_id) {
     if (input_get_button(player_id, BUTTON_UP) &&
         (!p1->in_air || p1->gliding) && !p1->last_up_keystate) {
         if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
-            p1->vely = -JUMP_HEIGHT;
+            p1->vely = JUMP_HEIGHT;
         } else {
-            p1->vely = -JUMP_HEIGHT / 1.6;
+            p1->vely = JUMP_HEIGHT / 1.6;
         }
         //        p1.y -= 0.05;
     }
@@ -242,38 +242,38 @@ void update_laser_shots() {
 void handle_box_collision(struct player *p1) {
     p1->gliding = false;
     if (p1->velx > 0) {
-        if (p1->x + p1->velx + 7 > 119) {
+        if (p1->x + p1->velx + 7 > 77) {
             p1->velx = 0;
-            p1->x = 119 - 7;
+            p1->x = 77 - 7;
             p1->gliding = true;
         }
     } else if (p1->velx < 0) {
-        if (p1->x + p1->velx < 43) {
+        if (p1->x + p1->velx < 0) {
             p1->velx = 0;
-            p1->x = 42 + 0.002;
+            p1->x = 0.002;
             p1->gliding = true;
         }
     }
-    if (p1->vely >= 0 && p1->y >= 110) {
+    if (p1->vely <= 0 && p1->y <= 9) {
         p1->vely = 0;
-        p1->y = 119 - 9;
+        p1->y = 9;
         p1->in_air = false;
     } else {
         p1->in_air = true;
     }
-    if (p1->vely <= 0 && p1->y <= 32) {
+    if (p1->vely >= 0 && p1->y >= 84) {
         p1->vely = 0;
     }
 }
 
 void correct_player_stomp_trajectory(struct player *p1) {
-    float x = (((int32_t)p1->x + 3) - 42) % 13;
+    float x = (((int32_t)p1->x + 3)) % 13;
     if (x > 13 - 3.5) {
         p1->velx = -(STOMP_SPEED * MAX(FRAMETIME, delta)) / 2;
-        p1->vely = (STOMP_SPEED * MAX(FRAMETIME, delta)) / 20;
+        p1->vely = -(STOMP_SPEED * MAX(FRAMETIME, delta)) / 20;
     } else if (x < 4.5) {
         p1->velx = (STOMP_SPEED * MAX(FRAMETIME, delta)) / 2;
-        p1->vely = (STOMP_SPEED * MAX(FRAMETIME, delta)) / 20;
+        p1->vely = -(STOMP_SPEED * MAX(FRAMETIME, delta)) / 20;
     }
 }
 
@@ -284,19 +284,19 @@ void handle_stomp_obstacle(struct player *p1) {
     }
     for (int32_t i = 0; i < ROWS; ++i) {
         for (int32_t j = 0; j < COLUMNS; ++j) {
-            int32_t x = 42 + (j * 13);
-            int32_t y = 35 + (i * 12);
+            int32_t x = (j * 13);
+            int32_t y = ((ROWS - i) * 12);
             int32_t w = 12;
             int32_t h = 12;
 
             struct point p;
-            p.y = p1->y + 9 + p1->vely;
+            p.y = p1->y - 9;
             p.x = p1->x + 3.5;
             if (is_point_inside_rectangle(p.x, p.y, x, y, h, w)) {
                 if (bit_blocks[i][j] == UNFLIPPED) {
                     bit_blocks[i][j] = FLIPPED;
                     add_score(10);
-                    p1->vely = -JUMP_HEIGHT;
+                    p1->vely = JUMP_HEIGHT;
                     p1->in_air = true;
                     p1->stomping = false;
                     return;
@@ -312,7 +312,7 @@ void handle_stomp_obstacle(struct player *p1) {
                     p1->stomped_obstacles++;
 
                 } else if (bit_blocks[i][j] == ERR_BLOCK) {
-                    p1->vely = -JUMP_HEIGHT;
+                    p1->vely = JUMP_HEIGHT;
                     p1->in_air = true;
                     p1->stomping = false;
                     return;
@@ -324,38 +324,38 @@ void handle_stomp_obstacle(struct player *p1) {
 
 void handle_player_collision(struct player *p1) {
     if ((!player0.stomping && !player0.dead && player0.joined) &&
-        (player0.y > p1->y) &&
+        (player0.y < p1->y) &&
         rectanglesOverlap(p1->x, p1->y, 7, 9, player0.x, player0.y, 7, 9)) {
         player0.dead = true;
         player0.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = JUMP_HEIGHT;
         p1->in_air = true;
         p1->stomping = false;
     }
     if ((!player1.stomping && !player1.dead && player1.joined) &&
-        (player1.y > p1->y) &&
+        (player1.y < p1->y) &&
         rectanglesOverlap(p1->x, p1->y, 7, 9, player1.x, player1.y, 7, 9)) {
         player1.dead = true;
         player1.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = JUMP_HEIGHT;
         p1->in_air = true;
         p1->stomping = false;
     }
     if ((!player2.stomping && !player2.dead && player2.joined) &&
-        (player2.y > p1->y) &&
+        (player2.y < p1->y) &&
         rectanglesOverlap(p1->x, p1->y, 7, 9, player2.x, player2.y, 7, 9)) {
         player2.dead = true;
         player2.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = JUMP_HEIGHT;
         p1->in_air = true;
         p1->stomping = false;
     }
     if ((!player3.stomping && !player3.dead && player3.joined) &&
-        (player3.y > p1->y) &&
+        (player3.y < p1->y) &&
         rectanglesOverlap(p1->x, p1->y, 7, 9, player3.x, player3.y, 7, 9)) {
         player3.dead = true;
         player3.death_time = get_unpaused_ms();
-        p1->vely = -JUMP_HEIGHT;
+        p1->vely = JUMP_HEIGHT;
         p1->in_air = true;
         p1->stomping = false;
     }
@@ -371,8 +371,8 @@ void flip_blocks(struct player *p1) {
                 continue;
             }
 
-            int32_t x = 42 + (j * 13);
-            int32_t y = 35 + (i * 12);
+            int32_t x = (j * 13);
+            int32_t y = ((ROWS - i) * 12);
             int32_t w = 12;
             int32_t h = 12;
 
@@ -414,20 +414,20 @@ void generate_mesh() {
 
         if (left_height < right_height) {
             struct line new_line;
-            new_line.x = 42 + (i + 1) * 13 + 1 - 3.499;
+            new_line.x = (i + 1) * 13 + 1 - 3.499;
             new_line.a = new_line.x;
 
-            new_line.y = 120;
-            new_line.b = 119 - (right_height * 12) - 4.499;
+            new_line.y = 0;
+            new_line.b = (right_height * 12) + 4.499;
             vertical_mesh[vertical_mesh_count] = new_line;
             vertical_mesh_count++;
         } else if (left_height > right_height) {
             struct line new_line;
-            new_line.x = 41 + (i + 1) * 13 + 3.499;
+            new_line.x = -1 + (i + 1) * 13 + 3.499;
             new_line.a = new_line.x;
 
-            new_line.y = 119 - (left_height * 12) - 4.499;
-            new_line.b = 120;
+            new_line.y = (left_height * 12) + 4.499;
+            new_line.b = 0;
             vertical_mesh[vertical_mesh_count] = new_line;
             vertical_mesh_count++;
         }
@@ -445,10 +445,10 @@ void generate_mesh() {
             horizontal_mesh[horizontal_mesh_count - 1].a += 13;
         } else {
             struct line new_line;
-            new_line.x = 42 + (i * 13) - 3.5;
-            new_line.a = new_line.x + 12 + 7;
+            new_line.x = (i * 13) - 3.5 + 1;
+            new_line.a = new_line.x + 12 + 7 - 1;
 
-            new_line.y = 119 - (current_height * 12) - 4.5;
+            new_line.y = (current_height * 12) + 4.5;
             new_line.b = new_line.y;
             horizontal_mesh[horizontal_mesh_count] = new_line;
             horizontal_mesh_count++;
@@ -476,7 +476,7 @@ int32_t get_new_bit_delay() {
 void handle_block_collision(struct player *p1) {
     struct point center;
     center.x = p1->x + 3.5;
-    center.y = p1->y + 4.5;
+    center.y = p1->y - 4.5;
 
     struct point center_vel;
     center_vel.x = center.x + p1->velx;
@@ -489,14 +489,14 @@ void handle_block_collision(struct player *p1) {
     center_line.b = center_vel.y;
     // redner mesh
 
-    if (p1->vely >= -0.040) {
+    if (p1->vely <= +0.040) {
         for (int32_t i = 0; i < horizontal_mesh_count; i++) {
             //            printf("1, %d\n", i);
             bool g = linesIntersect(horizontal_mesh[i], center_line);
             //            printf("2, %d\n", i);
             if (g) {
                 p1->vely = 0;
-                p1->y = horizontal_mesh[i].b - 4.5;
+                p1->y = horizontal_mesh[i].b + 4.5;
                 p1->in_air = false;
             }
         }
@@ -505,7 +505,7 @@ void handle_block_collision(struct player *p1) {
         p1->vely = 0;
         struct point gravity_center_vel;
         gravity_center_vel.x = center.x + p1->velx;
-        gravity_center_vel.y = center.y + GRAVITY * MAX(FRAMETIME, delta);
+        gravity_center_vel.y = center.y - GRAVITY * MAX(FRAMETIME, delta);
         struct line gravity_center_line;
         gravity_center_line.x = center.x;
         gravity_center_line.y = center.y;
@@ -535,7 +535,7 @@ void handle_block_collision(struct player *p1) {
 bool player_died(struct player *p1) {
 
     if (flash_spawned) {
-        if (rectanglesOverlap(p1->x + 0.001 - 41, p1->y + 0.001 - 34, 5, 7,
+        if (rectanglesOverlap(p1->x + 0.001, p1->y + 0.001, 5, 7,
                               (interest_column)*13, 0, 12, 120)) {
             return true;
         }
@@ -545,21 +545,19 @@ bool player_died(struct player *p1) {
             int32_t x =
                 ((laser_shots[i].column - laser_shots[i].left_expansion) * 13) -
                 1;
-            int32_t y = (laser_shots[i].row * 12) + 5;
+            int32_t y = ((ROWS - laser_shots[i].row) * 12) + 4;
             int32_t w = ((laser_shots[i].left_expansion +
                           laser_shots[i].right_expansion + 1) *
                          13) +
                         1;
             int32_t h = 4;
-            if (rectanglesOverlap(p1->x + 1 - 41, p1->y + 1 - 34, 7, 9, x, y, w,
-                                  h)) {
+            if (rectanglesOverlap(p1->x, p1->y + 1, 7, 9, x, y, w, h)) {
                 return true;
             }
         }
     }
     return false;
 }
-
 void draw_player(struct player p1, int32_t pindex) {
     sx = 2 * 7;
     if (!p1.dead) {
@@ -581,7 +579,7 @@ void draw_player(struct player p1, int32_t pindex) {
             sx = 2 * 7; // index 2 is for looking at straight ahead
         }
     }
-    surf_draw_masked_subsurf(box, &player_texture, p1.x - 41, p1.y - 34, sx,
+    surf_draw_masked_subsurf(box, &player_texture, p1.x + 1, 85 - p1.y, sx,
                              pindex * 9, 7, 9, BLACK);
 }
 
@@ -600,19 +598,19 @@ void handle_player(struct player *p1, int32_t player_id) {
 
     p1->velx = 0;
     if (p1->in_air) {
-        p1->vely += GRAVITY * MAX(FRAMETIME, delta);
+        p1->vely -= GRAVITY * MAX(FRAMETIME, delta);
     } else {
         p1->vely = 0;
     }
     handle_input(p1, player_id);
     if (p1->stomping) {
-        p1->vely = (6 - p1->stomped_obstacles) * (STOMP_SPEED / (5 + 1)) *
+        p1->vely = -(6 - p1->stomped_obstacles) * (STOMP_SPEED / (5 + 1)) *
                    MAX(FRAMETIME, delta);
         handle_box_collision(p1);
         if (fabs(p1->vely) <= ALLOWED_FLOAT_ERROR) {
             p1->vely = 0;
 
-            p1->vely = -JUMP_HEIGHT;
+            p1->vely = JUMP_HEIGHT;
             p1->in_air = true;
             p1->stomping = false;
             return;
@@ -627,12 +625,12 @@ void handle_player(struct player *p1, int32_t player_id) {
 
         handle_box_collision(p1);
         handle_block_collision(p1);
-        if (p1->gliding && p1->vely > GLIDE_SPEED) {
-            p1->vely = GLIDE_SPEED;
+        if (p1->gliding && p1->vely < -GLIDE_SPEED) {
+            p1->vely = -GLIDE_SPEED;
         }
         p1->y += p1->vely * MAX(FRAMETIME, delta);
     }
-    // p1->dead = player_died(p1);
+    p1->dead = player_died(p1);
     if (p1->dead) {
         p1->death_time = get_unpaused_ms();
     }
@@ -1160,31 +1158,31 @@ uint8_t start(void) {
     //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR,
     //     AIR, AIR},
     // };
-    player0.x = 96;
-    player0.y = 0;
+    player0.x = 32;
+    player0.y = 120;
     player0.velx = 0;
-    player0.vely = -0.1;
+    player0.vely = 0.1;
     player0.dead = false;
     player0.joined = false;
     player0.respawning = true;
-    player1.x = 96;
-    player1.y = 0;
+    player1.x = 32;
+    player1.y = 120;
     player1.velx = 0;
-    player1.vely = -0.1;
+    player1.vely = 0.1;
     player1.dead = false;
     player1.joined = false;
     player1.respawning = true;
-    player2.x = 96;
-    player2.y = 0;
+    player2.x = 32;
+    player2.y = 120;
     player2.velx = 0;
-    player2.vely = -0.1;
+    player2.vely = 0.1;
     player2.dead = false;
     player2.joined = false;
     player2.respawning = true;
-    player3.x = 96;
-    player3.y = 0;
+    player3.x = 32;
+    player3.y = 120;
     player3.velx = 0;
-    player3.vely = -0.1;
+    player3.vely = 0.1;
     player3.dead = false;
     player3.joined = false;
     player3.respawning = true;
