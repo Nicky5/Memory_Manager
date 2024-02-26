@@ -10,13 +10,15 @@
 #include "blaster2.m3if.asset"
 #include "blaster3.m3if.asset"
 #include "blaster4.m3if.asset"
+#include "capsule.m3if.asset"
 #include "error.m3if.asset"
 #include "flash.m3if.asset"
 #include "flipped.m3if.asset"
-#include "graphics.h"
 #include "player.m3if.asset"
 #include "unflipped.m3if.asset"
 #include "warning.m3if.asset"
+
+#include "graphics.h"
 #include <gpu.h>
 #include <mes.h>
 #include <rng.h>
@@ -190,6 +192,7 @@ Surface unflipped_texture;
 Surface flipped_texture;
 Surface error_texture;
 Surface player_texture;
+Surface capsule_texture;
 Surface *box;
 
 void handle_input(struct player *p1, int32_t player_id);
@@ -239,6 +242,8 @@ void handle_block_collision(struct player *p1);
 bool player_died(struct player *p1);
 
 void draw_player(struct player p1, int32_t pindex);
+
+void draw_capsule(struct player p1, int32_t pindex);
 
 void handle_player(struct player *p1, int32_t player_id);
 

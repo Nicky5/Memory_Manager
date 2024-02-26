@@ -559,28 +559,93 @@ bool player_died(struct player *p1) {
     return false;
 }
 void draw_player(struct player p1, int32_t pindex) {
-    sx = 2 * 7;
-    if (!p1.dead) {
-        if (p1.stomping) {
-            sx = (3 + ((get_unpaused_ms() % 1200) / 300)) *
-                 7; // index 4 to 7 are for he rotating motion when stomping
-            // printf("%d\n", 4+((get_unpaused_ms()%400)/100));
-        } else if (input_get_button(pindex, BUTTON_RIGHT)) {
-            if (p1.gliding)
-                sx = 7 * 7; // index 7 is for gliding on a wall on the right
-            else
-                sx = 0 * 7; // index 0 is for going right
-        } else if (input_get_button(pindex, BUTTON_LEFT)) {
-            if (p1.gliding)
-                sx = 8 * 7; // index 8 is for gliding on a wall on the left
-            else
-                sx = 1 * 7; // index 1 is for going left
-        } else {
-            sx = 2 * 7; // index 2 is for looking at straight ahead
+    bool show_player = false;
+
+    if (p1.dead && p1.joined) {
+        if (p1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+            (p1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+                DEATH_BLINK_SPEED) {
+            show_player = true;
+        }
+    } else if (p1.joined && !lost) {
+        // gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, WHITE, box_char);
+        show_player = true;
+    }
+    if (lost && !p1.joined) {
+        show_player = false;
+    }
+
+    if (show_player) {
+        sx = 2 * 7;
+        if (!p1.dead) {
+            if (p1.stomping) {
+                sx = (3 + ((get_unpaused_ms() % 1200) / 300)) *
+                     7; // index 4 to 7 are for he rotating motion when stomping
+                // printf("%d\n", 4+((get_unpaused_ms()%400)/100));
+            } else if (input_get_button(pindex, BUTTON_RIGHT)) {
+                if (p1.gliding)
+                    sx = 7 * 7; // index 7 is for gliding on a wall on the right
+                else
+                    sx = 0 * 7; // index 0 is for going right
+            } else if (input_get_button(pindex, BUTTON_LEFT)) {
+                if (p1.gliding)
+                    sx = 8 * 7; // index 8 is for gliding on a wall on the left
+                else
+                    sx = 1 * 7; // index 1 is for going left
+            } else {
+                sx = 2 * 7; // index 2 is for looking at straight ahead
+            }
+        }
+        surf_draw_masked_subsurf(box, &player_texture, p1.x + 1, 85 - p1.y + 25,
+                                 sx, pindex * 9, 7, 9, BLACK);
+    }
+}
+
+void draw_capsule(struct player p1, int32_t pindex) {
+    int32_t sx = 11 + (pindex * 15);
+    int32_t p_colors[4] = {RED, BLUE, GREEN, YELLOW};
+    surf_draw_subsurf(box, &capsule_texture, sx, 0, 7, 10, 13, 19);
+    surf_set_pixel(box, sx + 5, 0, p_colors[pindex]);
+    surf_set_pixel(box, sx + 6, 0, p_colors[pindex]);
+    surf_set_pixel(box, sx + 7, 0, p_colors[pindex]);
+    surf_set_pixel(box, sx + 4, 1, p_colors[pindex]);
+    surf_set_pixel(box, sx + 5, 1, p_colors[pindex]);
+    surf_set_pixel(box, sx + 6, 1, p_colors[pindex]);
+    surf_set_pixel(box, sx + 7, 1, p_colors[pindex]);
+    surf_set_pixel(box, sx + 8, 1, p_colors[pindex]);
+    if ((p1.dead || !p1.joined) &&
+        (p1.death_time + DEATH_BLINK_SPEED * 4 < get_unpaused_ms() ||
+         p1.death_time == 0)) {
+        surf_draw_subsurf(box, &player_texture, sx + 3, 6, 2 * 7, pindex * 9, 7,
+                          9);
+    }
+    if (lost && !p1.joined) {
+        surf_draw_subsurf(box, &player_texture, sx + 3, 6, 2 * 7, pindex * 9, 7,
+                          9);
+    }
+#define c 5
+    const struct point positions[c] = {{2, 3}, {4, 3}, {6, 3}, {8, 3}, {10, 3}};
+    if ((p1.dead && p1.respawning) || lost) {
+        for (int32_t i = 0;
+             i < ((get_unpaused_ms() - p1.death_time) / (RESPAWN_INTERVAL / c));
+             i++) {
+            if (i < 0 || i > c) {
+                continue;
+            }
+            surf_set_pixel(box, sx + positions[i].x, positions[i].y, RED);
+        }
+    } else {
+        for (int32_t i = 0; i < c; i++) {
+            surf_set_pixel(box, sx + positions[i].x, positions[i].y, GREEN);
         }
     }
-    surf_draw_masked_subsurf(box, &player_texture, p1.x + 1, 85 - p1.y, sx,
-                             pindex * 9, 7, 9, BLACK);
+    if (p1.dead && p1.respawning) {
+        surf_draw_masked_subsurf(box, &capsule_texture, sx + 2, 5,
+                                 (get_unpaused_ms() / 1000) % 30, 0, 9, 10,
+                                 BLACK);
+    }
+    surf_draw_subsurf(box, &capsule_texture, sx + 3, 19, 0,
+                      10 + ((get_unpaused_ms() / 50) % 4) * 5, 7, 5);
 }
 
 void handle_player(struct player *p1, int32_t player_id) {
@@ -591,7 +656,9 @@ void handle_player(struct player *p1, int32_t player_id) {
     }
     if (!p1->joined || p1->dead) {
         if (p1->death_time + DEATH_BLINK_SPEED * 4 < get_unpaused_ms()) {
-            p1->y = 0;
+            p1->y = 103;
+            p1->x = 11 + (player_id * 15);
+            p1->vely = 0.1;
         }
         return;
     }
@@ -686,104 +753,108 @@ bool has_lost() {
 //    }
 //}
 
-void draw_player_respawn_progress(struct player p1, int32_t player_id) {
-    struct point positions[24] = {
-        {0, 5}, {1, 5}, {2, 5}, {3, 5}, {3, 4}, {2, 4}, {1, 4}, {0, 4},
-        {0, 3}, {1, 3}, {2, 3}, {3, 3}, {3, 2}, {2, 2}, {1, 2}, {0, 2},
-        {0, 1}, {1, 1}, {2, 1}, {3, 1}, {3, 0}, {2, 0}, {1, 0}, {0, 0},
-    };
-    switch (player_id) {
-    case 0:
-        surf_fill(prog_indic_0, DARK_RED);
-        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
-                                 (RESPAWN_INTERVAL / 24));
-             i++) {
-            if (i < 0 || i > 25) {
-                continue;
-            }
-            surf_set_pixel(prog_indic_0, positions[i].x, positions[i].y, GRAY);
-        }
-    case 1:
-        surf_fill(prog_indic_1, DARK_RED);
-        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
-                                 (RESPAWN_INTERVAL / 24));
-             i++) {
-            if (i < 0 || i > 24) {
-                continue;
-            }
-            surf_set_pixel(prog_indic_1, positions[i].x, positions[i].y, GRAY);
-        }
-    case 2:
-        surf_fill(prog_indic_2, DARK_RED);
-        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
-                                 (RESPAWN_INTERVAL / 24));
-             i++) {
-            if (i < 0 || i > 24) {
-                continue;
-            }
-            surf_set_pixel(prog_indic_2, positions[i].x, positions[i].y, GRAY);
-        }
-    case 3:
-        surf_fill(prog_indic_3, DARK_RED);
-        for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
-                                 (RESPAWN_INTERVAL / 24));
-             i++) {
-            if (i < 0 || i > 24) {
-                continue;
-            }
-            surf_set_pixel(prog_indic_3, positions[i].x, positions[i].y, GRAY);
-        }
-    }
-    // break;
-    // case 1:
-    //     surf_fill(prog_indic_1, DARK_RED);
-    //     printf("m%d\n",
-    //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
-    //            24);
-    //     for (int32_t i = -1;
-    //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
-    //          / 24; i++) {
-    //         printf("i%d\n", i);
-    //         if (i == -1) {
-    //             continue;
-    //         }
-    //         surf_set_pixel(prog_indic_1, positions[i].x, positions[i].y,
-    //         GRAY);
-    //     }
-    //     break;
-    // case 2:
-    //     surf_fill(prog_indic_2, DARK_RED);
-    //     printf("m%d\n",
-    //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
-    //            24);
-    //     for (int32_t i = -1;
-    //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
-    //          / 24; i++) {
-    //         printf("i%d\n", i);
-    //         if (i == -1) {
-    //             continue;
-    //         }
-    //         surf_set_pixel(prog_indic_2, positions[i].x, positions[i].y,
-    //         GRAY);
-    //     }
-    //     break;
-    // case 3:
-    //     surf_fill(prog_indic_3, DARK_RED);
-    //     printf("m%d\n",
-    //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
-    //            24);
-    //     for (int32_t i = -1;
-    //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
-    //          / 24; i++) {
-    //         printf("i%d\n", i);
-    //         if (i == -1) {
-    //             continue;
-    //         }
-    //         surf_set_pixel(prog_indic_3, positions[i].x, positions[i].y,
-    //         GRAY);
-    //     }
-    //     break;
-}
+// void draw_player_respawn_progress(struct player p1, int32_t player_id) {
+//     struct point positions[24] = {
+//         {0, 5}, {1, 5}, {2, 5}, {3, 5}, {3, 4}, {2, 4}, {1, 4}, {0, 4},
+//         {0, 3}, {1, 3}, {2, 3}, {3, 3}, {3, 2}, {2, 2}, {1, 2}, {0, 2},
+//         {0, 1}, {1, 1}, {2, 1}, {3, 1}, {3, 0}, {2, 0}, {1, 0}, {0, 0},
+//     };
+//     switch (player_id) {
+//     case 0:
+//         surf_fill(prog_indic_0, DARK_RED);
+//         for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+//                                  (RESPAWN_INTERVAL / 24));
+//              i++) {
+//             if (i < 0 || i > 25) {
+//                 continue;
+//             }
+//             surf_set_pixel(prog_indic_0, positions[i].x, positions[i].y,
+//             GRAY);
+//         }
+//     case 1:
+//         surf_fill(prog_indic_1, DARK_RED);
+//         for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+//                                  (RESPAWN_INTERVAL / 24));
+//              i++) {
+//             if (i < 0 || i > 24) {
+//                 continue;
+//             }
+//             surf_set_pixel(prog_indic_1, positions[i].x, positions[i].y,
+//             GRAY);
+//         }
+//     case 2:
+//         surf_fill(prog_indic_2, DARK_RED);
+//         for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+//                                  (RESPAWN_INTERVAL / 24));
+//              i++) {
+//             if (i < 0 || i > 24) {
+//                 continue;
+//             }
+//             surf_set_pixel(prog_indic_2, positions[i].x, positions[i].y,
+//             GRAY);
+//         }
+//     case 3:
+//         surf_fill(prog_indic_3, DARK_RED);
+//         for (int32_t i = 0; i < ((get_unpaused_ms() - p1.death_time) /
+//                                  (RESPAWN_INTERVAL / 24));
+//              i++) {
+//             if (i < 0 || i > 24) {
+//                 continue;
+//             }
+//             surf_set_pixel(prog_indic_3, positions[i].x, positions[i].y,
+//             GRAY);
+//         }
+//     }
+//     // break;
+//     // case 1:
+//     //     surf_fill(prog_indic_1, DARK_RED);
+//     //     printf("m%d\n",
+//     //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
+//     //            24);
+//     //     for (int32_t i = -1;
+//     //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
+//     //          / 24; i++) {
+//     //         printf("i%d\n", i);
+//     //         if (i == -1) {
+//     //             continue;
+//     //         }
+//     //         surf_set_pixel(prog_indic_1, positions[i].x, positions[i].y,
+//     //         GRAY);
+//     //     }
+//     //     break;
+//     // case 2:
+//     //     surf_fill(prog_indic_2, DARK_RED);
+//     //     printf("m%d\n",
+//     //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
+//     //            24);
+//     //     for (int32_t i = -1;
+//     //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
+//     //          / 24; i++) {
+//     //         printf("i%d\n", i);
+//     //         if (i == -1) {
+//     //             continue;
+//     //         }
+//     //         surf_set_pixel(prog_indic_2, positions[i].x, positions[i].y,
+//     //         GRAY);
+//     //     }
+//     //     break;
+//     // case 3:
+//     //     surf_fill(prog_indic_3, DARK_RED);
+//     //     printf("m%d\n",
+//     //            ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL) /
+//     //            24);
+//     //     for (int32_t i = -1;
+//     //          i < ((get_unpaused_ms() - p1.death_time) % RESPAWN_INTERVAL)
+//     //          / 24; i++) {
+//     //         printf("i%d\n", i);
+//     //         if (i == -1) {
+//     //             continue;
+//     //         }
+//     //         surf_set_pixel(prog_indic_3, positions[i].x, positions[i].y,
+//     //         GRAY);
+//     //     }
+//     //     break;
+// }
 
 void render() {
     surf_fill(box, BLACK);
@@ -796,13 +867,14 @@ void render() {
     // text_to_print[13] = '/';
     // text_to_print[14] = *paddedHighScore;
 
-    gpu_print_text(FRONT_BUFFER, 38 - 3, 3, WHITE, BLACK, text_to_print);
+    gpu_print_text(FRONT_BUFFER, 38 - 3, 0, WHITE, BLACK, text_to_print);
     // gpu_print_text(FRONT_BUFFER, (160 / 2) - 2, 3, WHITE, BLACK, "/");
     // gpu_print_text(FRONT_BUFFER, (160 / 2) + 4, 3, WHITE, BLACK,
     //    paddedHighScore);
 
-    surf_draw_masked_surf(box, &background_texture, 0, 0, BLACK);
+    surf_draw_masked_surf(box, &background_texture, 0, 25, BLACK);
 
+    // bit destruction
     for (int32_t bit = 0; bit < ROWS * COLUMNS; bit++) {
         if (get_unpaused_ms() -
                     bit_descturction_animations[bit].animation_start <
@@ -810,16 +882,20 @@ void render() {
             get_unpaused_ms() > DESTROIED_BIT_ANIMATION_DURATION) {
             surf_set_pixel(
                 box, 1 + (bit_descturction_animations[bit].column * 13) + 5,
-                1 + (bit_descturction_animations[bit].row * 12) + 5, WHITE);
+                1 + (bit_descturction_animations[bit].row * 12) + 5 + 25,
+                WHITE);
             surf_set_pixel(
                 box, 1 + (bit_descturction_animations[bit].column * 13) + 5,
-                1 + (bit_descturction_animations[bit].row * 12) + 6, WHITE);
+                1 + (bit_descturction_animations[bit].row * 12) + 6 + 25,
+                WHITE);
             surf_set_pixel(
                 box, 1 + (bit_descturction_animations[bit].column * 13) + 6,
-                1 + (bit_descturction_animations[bit].row * 12) + 5, WHITE);
+                1 + (bit_descturction_animations[bit].row * 12) + 5 + 25,
+                WHITE);
             surf_set_pixel(
                 box, 1 + (bit_descturction_animations[bit].column * 13) + 6,
-                1 + (bit_descturction_animations[bit].row * 12) + 6, WHITE);
+                1 + (bit_descturction_animations[bit].row * 12) + 6 + 25,
+                WHITE);
         }
     }
 
@@ -830,13 +906,14 @@ void render() {
         //        int32_t w = 12;
         //        int32_t h = 12 *
         //        (column_air_amount(interest_column));
-        surf_draw_masked_surf(box, &warning_texture, x, y, BLACK);
+        surf_draw_masked_surf(box, &warning_texture, x, y + 25, BLACK);
         switch (next_block) {
         case UNFLIPPED:
-            surf_draw_surf(box, &unflipped_texture, x, y);
+            surf_draw_surf(box, &unflipped_texture, x, y + 25);
             break;
         case BLASTER:
-            surf_draw_surf(box, &blaster0_texture, interest_column * 13 + 1, 1);
+            surf_draw_surf(box, &blaster0_texture, interest_column * 13 + 1,
+                           1 + 25);
             break;
         }
     } else if (flash) {
@@ -852,7 +929,7 @@ void render() {
         //        (column_air_amount(interest_column)));
         //        source_rect.w = 12; source_rect.h = 12 *
         //        (column_air_amount(interest_column));
-        surf_draw_masked_surf(box, &flash_texture, x, y, BLACK);
+        surf_draw_masked_surf(box, &flash_texture, x, y + 25, BLACK);
     }
 
     for (int i = 0; i < ROWS * COLUMNS * 8; i++) {
@@ -866,10 +943,10 @@ void render() {
                          13) +
                         1;
             for (int j = x; j < x + w; j++) {
-                surf_set_pixel(box, j, y, DARK_RED);
-                surf_set_pixel(box, j, y + 1, RED);
-                surf_set_pixel(box, j, y + 2, RED);
-                surf_set_pixel(box, j, y + 3, DARK_RED);
+                surf_set_pixel(box, j, y + 25, DARK_RED);
+                surf_set_pixel(box, j, y + 1 + 25, RED);
+                surf_set_pixel(box, j, y + 2 + 25, RED);
+                surf_set_pixel(box, j, y + 3 + 25, DARK_RED);
             }
         }
         if (!laser_shots[i].destroyed) {
@@ -877,15 +954,15 @@ void render() {
             int32_t y = 1 + (laser_shots[i].row * 12);
             //            printf("%d\n", laser_shots[i].texture);
             if (laser_shots[i].texture == 0) {
-                surf_draw_surf(box, &blaster0_texture, x, y);
+                surf_draw_surf(box, &blaster0_texture, x, y + 25);
             } else if (laser_shots[i].texture == 1) {
-                surf_draw_surf(box, &blaster1_texture, x, y);
+                surf_draw_surf(box, &blaster1_texture, x, y + 25);
             } else if (laser_shots[i].texture == 2) {
-                surf_draw_surf(box, &blaster2_texture, x, y);
+                surf_draw_surf(box, &blaster2_texture, x, y + 25);
             } else if (laser_shots[i].texture == 3) {
-                surf_draw_surf(box, &blaster3_texture, x, y);
+                surf_draw_surf(box, &blaster3_texture, x, y + 25);
             } else if (laser_shots[i].texture == 4) {
-                surf_draw_surf(box, &blaster4_texture, x, y);
+                surf_draw_surf(box, &blaster4_texture, x, y + 25);
             }
         }
     }
@@ -906,95 +983,117 @@ void render() {
             //            "\n";
             switch (bit_blocks[i][j]) {
             case UNFLIPPED:
-                surf_draw_surf(box, &unflipped_texture, x, y);
+                surf_draw_surf(box, &unflipped_texture, x, y + 25);
                 break;
             case FLIPPED:
-                surf_draw_surf(box, &flipped_texture, x, y);
+                surf_draw_surf(box, &flipped_texture, x, y + 25);
                 break;
             case ERR_BLOCK:
-                surf_draw_surf(box, &error_texture, x, y);
+                surf_draw_surf(box, &error_texture, x, y + 25);
                 break;
             }
         }
     }
 
-    char box_char[2] = {'!' - 64, 0};
-    if (player0.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 58, 13, RED,
-        // box_char);
-        gpu_print_text(FRONT_BUFFER, 58, 13, RED, DARK_RED, box_char);
-        if (player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-            (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED) {
-            draw_player(player0, 0);
-        }
-        if (player0.respawning) {
-            // draw_player_respawn_progress(player0, 0);
-        }
-    } else if (player0.joined) {
-        gpu_print_text(FRONT_BUFFER, 58, 13, RED, WHITE, box_char);
-        draw_player(player0, 0);
-    } else {
-        gpu_print_text(FRONT_BUFFER, 58, 13, RED, GRAY, box_char);
-    }
+    draw_capsule(player0, 0);
+    draw_capsule(player1, 1);
+    draw_capsule(player2, 2);
+    draw_capsule(player3, 3);
+    draw_player(player0, 0);
+    draw_player(player1, 1);
+    draw_player(player2, 2);
+    draw_player(player3, 3);
+    // if ((player0.dead &&
+    //      (player0.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //       (player0.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //           DEATH_BLINK_SPEED)) ||
+    //     player0.joined) {
+    //     draw_player(player0, 0);
+    // }
+    // if ((player1.dead &&
+    //      (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //       (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //           DEATH_BLINK_SPEED)) ||
+    //     player1.joined) {
+    //     draw_player(player1, 1);
+    // }
+    // if ((player2.dead &&
+    //      (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //       (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //           DEATH_BLINK_SPEED)) ||
+    //     player2.joined) {
+    //     draw_player(player2, 2);
+    // }
+    // if ((player3.dead &&
+    //      (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //       (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
+    //           DEATH_BLINK_SPEED)) ||
+    //     player3.joined) {
+    //     draw_player(player3, 3);
+    // }
 
-    if (player1.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE,
-        // box_char);
-        gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, RED, box_char);
-        if (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-            (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED) {
-            draw_player(player1, 1);
-        }
-        if (player1.respawning) {
-            // draw_player_respawn_progress(player1, 1);
-        }
-    } else if (player1.joined) {
-        gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, WHITE, box_char);
-        draw_player(player1, 1);
-    } else {
-        gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, GRAY, box_char);
-    }
+    // if (player1.dead) {
+    //     // gpu_print_transparent_text(FRONT_BUFFER, 71, 13, BLUE,
+    //     // box_char);
+    //     // gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, RED, box_char);
+    //     if (player1.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //         (player1.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //         <
+    //             DEATH_BLINK_SPEED) {
+    //         draw_player(player1, 1);
+    //     }
+    //     if (player1.respawning) {
+    //         // draw_player_respawn_progress(player1, 1);
+    //     }
+    // } else if (player1.joined) {
+    //     // gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, WHITE, box_char);
+    //     draw_player(player1, 1);
+    // } else {
+    //     // gpu_print_text(FRONT_BUFFER, 71, 13, BLUE, GRAY, box_char);
+    // }
 
-    if (player2.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 84, 13,
-        // GREEN, box_char);
-        gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, RED, box_char);
-        if (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-            (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED) {
-            draw_player(player2, 2);
-        }
-        if (player2.respawning) {
-            // draw_player_respawn_progress(player2, 2);
-        }
-    } else if (player2.joined) {
-        gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, WHITE, box_char);
-        draw_player(player2, 2);
-    } else {
-        gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, GRAY, box_char);
-    }
+    // if (player2.dead) {
+    //     // gpu_print_transparent_text(FRONT_BUFFER, 84, 13,
+    //     // GREEN, box_char);
+    //     // gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, RED, box_char);
+    //     if (player2.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //         (player2.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //         <
+    //             DEATH_BLINK_SPEED) {
+    //         draw_player(player2, 2);
+    //     }
+    //     if (player2.respawning) {
+    //         // draw_player_respawn_progress(player2, 2);
+    //     }
+    // } else if (player2.joined) {
+    //     // gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, WHITE, box_char);
+    //     draw_player(player2, 2);
+    // } else {
+    //     // gpu_print_text(FRONT_BUFFER, 84, 13, GREEN, GRAY, box_char);
+    // }
 
-    if (player3.dead) {
-        // gpu_print_transparent_text(FRONT_BUFFER, 97, 13,
-        // YELLOW, box_char);
-        gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, RED, box_char);
-        if (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
-            (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2 <
-                DEATH_BLINK_SPEED) {
-            draw_player(player3, 3);
-        }
-        if (player3.respawning) {
-            // draw_player_respawn_progress(player3, 3);
-        }
-    } else if (player3.joined) {
-        gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, WHITE, box_char);
-        draw_player(player3, 3);
-    } else {
-        gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, GRAY, box_char);
-    }
-
+    // if (player3.dead) {
+    //     // gpu_print_transparent_text(FRONT_BUFFER, 97, 13,
+    //     // YELLOW, box_char);
+    //     // gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, RED, box_char);
+    //     if (player3.death_time + DEATH_BLINK_SPEED * 4 > get_unpaused_ms() &&
+    //         (player3.death_time - get_unpaused_ms()) % DEATH_BLINK_SPEED * 2
+    //         <
+    //             DEATH_BLINK_SPEED) {
+    //         draw_player(player3, 3);
+    //     }
+    //     if (player3.respawning) {
+    //         // draw_player_respawn_progress(player3, 3);
+    //     }
+    // } else if (player3.joined) {
+    //     // gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, WHITE, box_char);
+    //     draw_player(player3, 3);
+    // } else {
+    //     // gpu_print_text(FRONT_BUFFER, 97, 13, YELLOW, GRAY, box_char);
+    // }
+    // draw_capsule(player1, 1);
+    // draw_capsule(player2, 2);
+    // draw_capsule(player3, 3);
     // //debug player contour lines
     // if (player0.joined && !player0.dead)
     //     surf_draw_rectangle(box, (player0.x - 1) / 1000 - 41,
@@ -1069,7 +1168,7 @@ void render() {
     // }
 
     gpu_block_frame();
-    gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 34, box->d);
+    gpu_send_buf(BACK_BUFFER, box->w, box->h, 41, 9, box->d);
     // if (player0.respawning) {
     //     gpu_send_buf(BACK_BUFFER, prog_indic_0->w,
     //     prog_indic_0->h, 59, 14,
@@ -1120,15 +1219,15 @@ void render() {
 }
 
 uint8_t start(void) {
-    Surface temp0 = surf_create(4, 6);
-    Surface temp1 = surf_create(4, 6);
-    Surface temp2 = surf_create(4, 6);
-    Surface temp3 = surf_create(4, 6);
-    Surface temp = surf_create(1 + (COLUMNS * 13), 2 + (ROWS * 12));
-    prog_indic_0 = &temp0;
-    prog_indic_1 = &temp1;
-    prog_indic_2 = &temp2;
-    prog_indic_3 = &temp3;
+    // Surface temp0 = surf_create(4, 6);
+    // Surface temp1 = surf_create(4, 6);
+    // Surface temp2 = surf_create(4, 6);
+    // Surface temp3 = surf_create(4, 6);
+    Surface temp = surf_create(1 + (COLUMNS * 13), 2 + (ROWS * 12) + 25);
+    // prog_indic_0 = &temp0;
+    // prog_indic_1 = &temp1;
+    // prog_indic_2 = &temp2;
+    // prog_indic_3 = &temp3;
     box = &temp;
     warning_texture = surf_create_from_memory(12, 84, ASSET_WARNING_M3IF);
     flash_texture = surf_create_from_memory(12, 84, ASSET_FLASH_M3IF);
@@ -1143,6 +1242,7 @@ uint8_t start(void) {
     flipped_texture = surf_create_from_memory(12, 12, ASSET_FLIPPED_M3IF);
     error_texture = surf_create_from_memory(12, 12, ASSET_ERROR_M3IF);
     player_texture = surf_create_from_memory(70, 36, ASSET_PLAYER_M3IF);
+    capsule_texture = surf_create_from_memory(39, 30, ASSET_CAPSULE_M3IF);
     rng_init();
     gpu_update_palette(palette);
 
@@ -1158,28 +1258,28 @@ uint8_t start(void) {
     //     {AIR, AIR, AIR, AIR, AIR, AIR}, {AIR, AIR, AIR, AIR,
     //     AIR, AIR},
     // };
-    player0.x = 32;
+    player0.x = 11 + (0 * 15) + 1;
     player0.y = 120;
     player0.velx = 0;
     player0.vely = 0.1;
     player0.dead = false;
     player0.joined = false;
     player0.respawning = true;
-    player1.x = 32;
+    player1.x = 11 + (1 * 15) + 1;
     player1.y = 120;
     player1.velx = 0;
     player1.vely = 0.1;
     player1.dead = false;
     player1.joined = false;
     player1.respawning = true;
-    player2.x = 32;
+    player2.x = 11 + (2 * 15) + 1;
     player2.y = 120;
     player2.velx = 0;
     player2.vely = 0.1;
     player2.dead = false;
     player2.joined = false;
     player2.respawning = true;
-    player3.x = 32;
+    player3.x = 11 + (3 * 15) + 1;
     player3.y = 120;
     player3.velx = 0;
     player3.vely = 0.1;
